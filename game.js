@@ -663,6 +663,7 @@ function spawnEnemy(boss = false, eliteBoss = false) {
   const scale = eliteBoss ? 2.28 : boss ? 1.75 : rand(0.9, 1.15) * typeDef.scale;
   const baseHp = eliteBoss ? 190 : boss ? 72 : 13;
   const hpGrowth = eliteBoss ? 72 : boss ? 32 : 4.5;
+  const bossPatterns = ["fan", "nova", "slam"];
   state.enemies.push({
     x: pos.x,
     y: pos.y,
@@ -676,6 +677,9 @@ function spawnEnemy(boss = false, eliteBoss = false) {
     boss,
     eliteBoss,
     type,
+    bossPattern: boss ? bossPatterns[Math.floor(Math.random() * bossPatterns.length)] : null,
+    bossSkillTimer: boss ? rand(eliteBoss ? 2.0 : 2.8, eliteBoss ? 3.4 : 4.8) : 999,
+    bossCastFlash: 0,
     shootTimer: type === "spitter" ? rand(1.0, 2.2) : 999,
     hitFlash: 0,
     step: Math.random() * 10,
@@ -1248,15 +1252,79 @@ function updateHazards(dt) {
 function fireEnemyProjectile(enemy) {
   const p = state.player;
   const angle = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+  fireEnemyShot(enemy, angle, 210, 8 + state.elapsed / 60, 5, "spit", 3.2);
+}
+
+function fireEnemyShot(enemy, angle, speed, damage, radius, kind, life = 3.2) {
   state.enemyProjectiles.push({
     x: enemy.x,
     y: enemy.y - 6,
-    vx: Math.cos(angle) * 210,
-    vy: Math.sin(angle) * 210,
-    damage: 8 + state.elapsed / 60,
-    life: 3.2,
-    r: 5,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    damage,
+    life,
+    r: radius,
+    kind,
   });
+}
+
+function hurtPlayer(amount, invulnerable = 0.55, color = "#d14343") {
+  const p = state.player;
+  if (p.invulnerable > 0) return false;
+  p.hp -= amount;
+  p.invulnerable = invulnerable;
+  state.shake = Math.max(state.shake, 1);
+  addParticles(p.x, p.y, color, 16);
+  if (p.hp <= 0) endGame();
+  return true;
+}
+
+function castBossPattern(enemy) {
+  const p = state.player;
+  const elite = enemy.eliteBoss;
+  const baseDamage = elite ? 18 : 12;
+  enemy.bossCastFlash = 0.45;
+  state.shake = Math.max(state.shake, elite ? 1.1 : 0.7);
+
+  if (enemy.bossPattern === "nova") {
+    const count = elite ? 18 : 12;
+    const offset = state.elapsed * 0.8;
+    for (let i = 0; i < count; i += 1) {
+      const angle = offset + (Math.PI * 2 * i) / count;
+      fireEnemyShot(enemy, angle, elite ? 185 : 155, baseDamage, elite ? 7 : 6, "bossBolt", 4.2);
+    }
+    addParticles(enemy.x, enemy.y, elite ? "#ff8df0" : "#c05cff", elite ? 22 : 14);
+  } else if (enemy.bossPattern === "slam") {
+    const radius = elite ? 168 : 122;
+    state.hazards.push({
+      x: enemy.x,
+      y: enemy.y,
+      r: radius,
+      life: 0.55,
+      maxLife: 0.55,
+      evolved: elite,
+      kind: "bossSlam",
+    });
+    if (circleHitsActor(enemy.x, enemy.y, radius, p)) {
+      hurtPlayer(elite ? 26 : 17, 0.72, "#ff78cf");
+      const angle = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+      p.x += Math.cos(angle) * (elite ? 46 : 30);
+      p.y += Math.sin(angle) * (elite ? 46 : 30);
+    }
+    addParticles(enemy.x, enemy.y, elite ? "#ff4fd8" : "#b646ff", elite ? 28 : 18);
+  } else {
+    const angle = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+    const count = elite ? 7 : 5;
+    for (let i = 0; i < count; i += 1) {
+      const spread = (i - (count - 1) / 2) * (elite ? 0.18 : 0.23);
+      fireEnemyShot(enemy, angle + spread, elite ? 255 : 225, baseDamage + 2, elite ? 6 : 5, "bossFang", 3.0);
+    }
+    if (elite) {
+      fireEnemyShot(enemy, angle + Math.PI * 0.5, 170, baseDamage, 5, "bossFang", 3.4);
+      fireEnemyShot(enemy, angle - Math.PI * 0.5, 170, baseDamage, 5, "bossFang", 3.4);
+    }
+    addParticles(enemy.x, enemy.y, "#ffd1f4", elite ? 18 : 12);
+  }
 }
 
 function updateEnemyProjectiles(dt) {
@@ -1267,12 +1335,8 @@ function updateEnemyProjectiles(dt) {
     shot.life -= dt;
 
     if (p.invulnerable <= 0 && Math.hypot(shot.x - p.x, shot.y - p.y) < shot.r + actorRadius(p)) {
-      p.hp -= shot.damage;
-      p.invulnerable = 0.45;
+      hurtPlayer(shot.damage, 0.45, shot.kind && shot.kind.startsWith("boss") ? "#ff78cf" : "#8fd37d");
       shot.life = 0;
-      state.shake = 0.7;
-      addParticles(p.x, p.y, "#8fd37d", 10);
-      if (p.hp <= 0) endGame();
     }
   }
 
@@ -1764,19 +1828,25 @@ function update(dt) {
     enemy.y += Math.sin(a) * enemy.speed * moveFactor * slowFactor * dt;
     enemy.step += dt * enemy.speed * 0.06;
     enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 6);
+    enemy.bossCastFlash = Math.max(0, (enemy.bossCastFlash || 0) - dt);
     enemy.shootTimer -= dt;
+    enemy.bossSkillTimer -= dt;
 
     if (enemy.type === "spitter" && enemy.shootTimer <= 0 && enemyDistance < 520) {
       fireEnemyProjectile(enemy);
       enemy.shootTimer = rand(1.7, 2.8);
     }
 
+    if (enemy.boss && enemy.bossSkillTimer <= 0 && enemyDistance < 760) {
+      castBossPattern(enemy);
+      enemy.bossSkillTimer = rand(enemy.eliteBoss ? 2.3 : 3.2, enemy.eliteBoss ? 4.0 : 5.4);
+      if (enemy.eliteBoss && Math.random() < 0.35) {
+        enemy.bossPattern = ["fan", "nova", "slam"][Math.floor(Math.random() * 3)];
+      }
+    }
+
     if (actorsTouch(enemy, p) && p.invulnerable <= 0) {
-      p.hp -= enemy.damage;
-      p.invulnerable = 0.65;
-      state.shake = 1;
-      addParticles(p.x, p.y, "#d14343", 16);
-      if (p.hp <= 0) endGame();
+      hurtPlayer(enemy.damage, 0.65, "#d14343");
     }
   }
 
@@ -2096,6 +2166,25 @@ function drawHazards() {
       ctx.lineTo(midX, midY);
       ctx.lineTo(x2, y2);
       ctx.stroke();
+    } else if (hazard.kind === "bossSlam") {
+      ctx.strokeStyle = hazard.evolved ? `rgba(255, 79, 216, ${0.9 * alpha})` : `rgba(182, 70, 255, ${0.82 * alpha})`;
+      ctx.lineWidth = hazard.evolved ? 7 : 5;
+      ctx.beginPath();
+      ctx.arc(x, y, hazard.r * (1.04 - alpha * 0.12), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = hazard.evolved ? `rgba(255, 79, 216, ${0.16 * alpha})` : `rgba(182, 70, 255, ${0.13 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, hazard.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.34 * alpha})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i += 1) {
+        const a = (i / 8) * Math.PI * 2 + state.elapsed;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * hazard.r * 0.24, y + Math.sin(a) * hazard.r * 0.24);
+        ctx.lineTo(x + Math.cos(a) * hazard.r, y + Math.sin(a) * hazard.r);
+        ctx.stroke();
+      }
     } else if (hazard.kind === "beam") {
       ctx.save();
       ctx.translate(x, y);
@@ -2207,13 +2296,15 @@ function drawEnemyProjectiles() {
   for (const shot of state.enemyProjectiles) {
     const x = shot.x - state.camera.x;
     const y = shot.y - state.camera.y;
-    ctx.fillStyle = "rgba(143, 211, 125, 0.28)";
+    const bossShot = shot.kind && shot.kind.startsWith("boss");
+    const glow = shot.kind === "bossBolt" ? "255, 79, 216" : shot.kind === "bossFang" ? "255, 209, 244" : "143, 211, 125";
+    ctx.fillStyle = `rgba(${glow}, ${bossShot ? 0.34 : 0.28})`;
     ctx.beginPath();
-    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.arc(x, y, bossShot ? shot.r + 6 : 9, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#8fd37d";
-    ctx.fillRect(x - 3, y - 3, 6, 6);
-    ctx.fillStyle = "#d6ffb5";
+    ctx.fillStyle = shot.kind === "bossBolt" ? "#ff4fd8" : shot.kind === "bossFang" ? "#b646ff" : "#8fd37d";
+    ctx.fillRect(x - shot.r, y - shot.r, shot.r * 2, shot.r * 2);
+    ctx.fillStyle = bossShot ? "#ffffff" : "#d6ffb5";
     ctx.fillRect(x - 1, y - 1, 2, 2);
   }
 }
@@ -2239,7 +2330,8 @@ function drawPlayer(p) {
 function drawZombie(enemy) {
   const bob = Math.sin(enemy.step) * (enemy.boss ? 2 : 1.2);
   const scale = enemy.eliteBoss ? 3.25 : enemy.boss ? 2.65 : 2;
-  const body = enemy.hitFlash > 0 ? "#ffffff" : enemy.eliteBoss ? "#9b2f8f" : enemy.boss ? "#7542a8" : "#5f7b45";
+  const casting = enemy.bossCastFlash > 0 && Math.floor(performance.now() / 70) % 2;
+  const body = enemy.hitFlash > 0 ? "#ffffff" : casting ? "#ffb7f4" : enemy.eliteBoss ? "#9b2f8f" : enemy.boss ? "#7542a8" : "#5f7b45";
   const sprite = enemy.boss ? bossSprite : zombieSprite;
   const typePalette = enemy.type && enemyTypeDefs[enemy.type] ? enemyTypeDefs[enemy.type].palette : {};
   const basePalette = { ...palettes.zombie, ...typePalette };
@@ -2260,6 +2352,15 @@ function drawZombie(enemy) {
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(x, y + 2, enemy.w * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (enemy.boss && enemy.bossCastFlash > 0) {
+    const alpha = clamp(enemy.bossCastFlash / 0.45, 0, 1);
+    ctx.strokeStyle = enemy.eliteBoss ? `rgba(255, 79, 216, ${0.7 * alpha})` : `rgba(182, 70, 255, ${0.55 * alpha})`;
+    ctx.lineWidth = enemy.eliteBoss ? 4 : 3;
+    ctx.beginPath();
+    ctx.arc(x, y + 2, enemy.w * 0.58 + (1 - alpha) * 18, 0, Math.PI * 2);
     ctx.stroke();
   }
 
