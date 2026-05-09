@@ -359,6 +359,54 @@ const passiveUpgrades = [
   { name: "Learning Gem", text: "Experience gained +25%", weapon: "xp", apply: (game) => game.player.xpGain *= 1.25 },
 ];
 
+const evolutionDefs = {
+  knives: [
+    { name: "Blade Rain", text: "Evolve knives into a dense multi-blade storm", apply: (game) => game.player.might *= 1.08 },
+    { name: "Blood Needles", text: "Evolve knives and gain faster basic slashes", apply: (game) => game.player.attackRate *= 0.9 },
+    { name: "Phantom Daggers", text: "Evolve knives and gain movement speed", apply: (game) => game.player.speed *= 1.08 },
+  ],
+  fire: [
+    { name: "Fire Storm", text: "Evolve bottles into larger burning fields", apply: (game) => game.player.hazardBonus *= 1.08 },
+    { name: "Magma Trail", text: "Evolve bottles and make zones last harder", apply: (game) => game.player.might *= 1.08 },
+    { name: "Ash Bloom", text: "Evolve bottles and widen your cleave radius", apply: (game) => game.player.attackRadius += 1 },
+  ],
+  coil: [
+    { name: "Eternal Coil", text: "Evolve coil into a massive electric pulse", apply: (game) => game.player.regen += 0.6 },
+    { name: "Static Heart", text: "Evolve coil and gain weapon damage", apply: (game) => game.player.might *= 1.1 },
+    { name: "Arc Reactor", text: "Evolve coil and gain pickup range", apply: (game) => game.player.pickup *= 1.18 },
+  ],
+  tome: [
+    { name: "Moon Barrier", text: "Evolve tome into a stronger orbiting guard", apply: (game) => game.player.regen += 0.7 },
+    { name: "Star Pages", text: "Evolve tome and gain more XP from gems", apply: (game) => game.player.xpGain *= 1.18 },
+    { name: "Gravity Codex", text: "Evolve tome and pull gems from farther away", apply: (game) => game.player.pickup *= 1.25 },
+  ],
+  lightning: [
+    { name: "Thunder Crown", text: "Evolve lightning into repeated sky strikes", apply: (game) => game.player.might *= 1.12 },
+    { name: "Storm Step", text: "Evolve lightning and gain speed", apply: (game) => game.player.speed *= 1.1 },
+    { name: "Volt Halo", text: "Evolve lightning and quicken basic attacks", apply: (game) => game.player.attackRate *= 0.9 },
+  ],
+  bat: [
+    { name: "Night Flock", text: "Evolve bat into a swarm of diving spirits", apply: (game) => game.player.speed *= 1.08 },
+    { name: "Vampire Wing", text: "Evolve bat and gain health regeneration", apply: (game) => game.player.regen += 0.8 },
+    { name: "Echo Fang", text: "Evolve bat and increase all weapon damage", apply: (game) => game.player.might *= 1.1 },
+  ],
+  frost: [
+    { name: "Winter Star", text: "Evolve frost into a wide freezing burst", apply: (game) => game.player.regen += 0.8 },
+    { name: "Crystal Shell", text: "Evolve frost and increase max HP", apply: (game) => { game.player.maxHp += 35; game.player.hp += 35; } },
+    { name: "Glacier Ring", text: "Evolve frost and boost pickup range", apply: (game) => game.player.pickup *= 1.2 },
+  ],
+  poison: [
+    { name: "Plague Flask", text: "Evolve poison into huge toxic pools", apply: (game) => game.player.hazardBonus *= 1.1 },
+    { name: "Gold Toxin", text: "Evolve poison and gain more XP from gems", apply: (game) => game.player.xpGain *= 1.2 },
+    { name: "Rot Bloom", text: "Evolve poison and increase weapon damage", apply: (game) => game.player.might *= 1.08 },
+  ],
+  beam: [
+    { name: "Solar Lance", text: "Evolve beam into a huge piercing ray", apply: (game) => game.player.might *= 1.12 },
+    { name: "Dawn Prism", text: "Evolve beam and widen your cleaver radius", apply: (game) => game.player.attackRadius += 1 },
+    { name: "Nova Line", text: "Evolve beam and gain more XP from gems", apply: (game) => game.player.xpGain *= 1.18 },
+  ],
+};
+
 function resize() {
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   canvas.width = Math.floor(innerWidth * dpr);
@@ -435,6 +483,7 @@ function newGame() {
       poison: false,
       beam: false,
     },
+    evolutionNames: {},
     evolutionReady: {
       knives: false,
       fire: false,
@@ -1073,18 +1122,14 @@ function buildUpgradePool() {
 
   for (const [key, ready] of Object.entries(state.evolutionReady)) {
     if (!ready || state.evolved[key]) continue;
-    const names = {
-      knives: "Evolve: Blade Rain",
-      fire: "Evolve: Fire Storm",
-      coil: "Evolve: Eternal Coil",
-      tome: "Evolve: Moon Barrier",
-      lightning: "Evolve: Thunder Crown",
-      bat: "Evolve: Night Flock",
-      frost: "Evolve: Winter Star",
-      poison: "Evolve: Plague Flask",
-      beam: "Evolve: Solar Lance",
-    };
-    choices.push({ name: names[key], text: "Transform this weapon into its evolved form", weapon: key, apply: (game) => evolveWeapon(key, names[key].replace("Evolve: ", "")) });
+    for (const evolution of evolutionDefs[key] || []) {
+      choices.push({
+        name: `Evolve: ${evolution.name}`,
+        text: evolution.text,
+        weapon: key,
+        apply: (game) => evolveWeapon(key, evolution),
+      });
+    }
   }
 
   if (levels.knives === 0) {
@@ -1181,14 +1226,16 @@ function showLevelUp() {
   ui.levelUp.classList.remove("hidden");
 }
 
-function evolveWeapon(key, label) {
+function evolveWeapon(key, evolution) {
   if (state.evolved[key]) return;
-  state.evolved[key] = true;
+  state.evolved[key] = evolution.name;
+  state.evolutionNames[key] = evolution.name;
+  evolution.apply(state);
   state.flash = 0.55;
   state.shake = 1.2;
   addParticles(state.player.x, state.player.y, "#ffe2a0", 40);
   state.attacks.push({ x: state.player.x, y: state.player.y, radius: 230, facing: 1, life: 0.65, maxLife: 0.65, shape: "evolve" });
-  console.log(`evolved: ${label}`);
+  console.log(`evolved: ${evolution.name}`);
 }
 
 function updateEvolutionReadiness() {
@@ -1435,7 +1482,7 @@ function updateUi() {
     chip.className = "weapon-chip";
     const marker = state.evolved[key] ? "*" : state.evolutionReady[key] ? "!" : "";
     const stage = state.evolutionStage[key] || 0;
-    const evoText = key === "cleaver" ? "" : state.evolved[key] ? " Evo" : ` E${stage}/3`;
+    const evoText = key === "cleaver" ? "" : state.evolved[key] ? ` ${state.evolutionNames[key] || "Evo"}` : ` E${stage}/3`;
     chip.textContent = `${marker}${weaponDefs[key].name} ${level}${evoText}`;
     ui.weaponList.append(chip);
   }
