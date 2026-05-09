@@ -489,15 +489,50 @@ function tileOf(x, y) {
   return { tx: Math.floor(x / TILE), ty: Math.floor(y / TILE) };
 }
 
+function weightedPick(entries) {
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = Math.random() * total;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll <= 0) return entry.type;
+  }
+  return entries[entries.length - 1].type;
+}
+
 function chooseEnemyType() {
   const t = state.elapsed;
-  const pool = ["walker"];
-  if (t > 20) pool.push("runner", "runner");
-  if (t > 45) pool.push("brute");
-  if (t > 115) pool.push("spitter");
-  if (t > 160) pool.push("brute", "spitter", "runner");
-  if (t > 220) pool.push("spitter");
-  return pool[Math.floor(Math.random() * pool.length)];
+  const level = state.player.level;
+  const pressure = Math.max(t / 60, level * 0.55);
+  const weights = [
+    { type: "walker", weight: Math.max(0.35, 8 - pressure * 0.9) },
+    { type: "runner", weight: t > 18 || level >= 4 ? 2.2 + pressure * 0.35 : 0 },
+    { type: "brute", weight: t > 42 || level >= 7 ? 0.8 + pressure * 0.28 : 0 },
+    { type: "spitter", weight: t > 115 || level >= 14 ? 0.45 + pressure * 0.18 : 0 },
+  ];
+
+  if (level >= 8) {
+    weights[0].weight *= 0.55;
+    weights[1].weight *= 1.2;
+  }
+  if (level >= 14) {
+    weights[0].weight *= 0.38;
+    weights[2].weight *= 1.35;
+    weights[3].weight *= 1.2;
+  }
+  if (level >= 20) {
+    weights[0].weight *= 0.24;
+    weights[1].weight *= 0.9;
+    weights[2].weight *= 1.55;
+    weights[3].weight *= 1.55;
+  }
+
+  return weightedPick(weights.filter((entry) => entry.weight > 0));
+}
+
+function nextBossDelay() {
+  const level = state.player.level;
+  const pressure = state.elapsed / 60 + level * 0.35;
+  return Math.max(18, 42 - pressure * 2.4);
 }
 
 function spawnEnemy(boss = false) {
@@ -1244,7 +1279,8 @@ function update(dt) {
   }
   if (state.bossTimer <= 0) {
     spawnEnemy(true);
-    state.bossTimer = 42;
+    if (state.elapsed > 220 || p.level >= 18) spawnEnemy(true);
+    state.bossTimer = nextBossDelay();
   }
 
   if (p.attackCooldown <= 0) {
