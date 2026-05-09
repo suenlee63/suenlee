@@ -44,7 +44,7 @@ const weaponDefs = {
   lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
   chainvolt: { name: "Million Volt", desc: "A chained electric shot that jumps between enemies" },
   bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
-  frost: { name: "Aqua Shot", desc: "Fires a focused water shot at one enemy" },
+  frost: { name: "Aqua Shot", desc: "Starts as quick water shots and grows into a pressurized stream" },
   wave: { name: "Tidal Wave", desc: "Sends a cute water burst around you" },
   shellguard: { name: "Shell Guard", desc: "Cracks a defensive shell pulse nearby" },
   poison: { name: "Poison Vial", desc: "Throws toxic pools behind the horde" },
@@ -946,23 +946,34 @@ function sendSpiritBat() {
 function fireAquaShot() {
   const p = state.player;
   const level = state.weaponLevels.frost;
-  const target = nearestEnemy(760);
+  const target = nearestEnemy(820);
   if (!target) return;
   const evolved = state.evolved.frost;
-  const count = (state.ascended.frost ? 3 : evolved ? 2 : 1) + Math.floor(level / 5);
+  const ascended = state.ascended.frost;
+  const stream = level >= 5 || evolved;
+  const count = Math.min(9, 1 + Math.floor(level / 2) + (evolved ? 2 : 0) + (ascended ? 2 : 0));
+  const speed = ascended ? 650 : evolved ? 610 : 530;
+  const hitRadius = (stream ? 6 : 4) + Math.floor(level / 3) + (evolved ? 2 : 0) + (ascended ? 2 : 0);
   for (let i = 0; i < count; i += 1) {
-    const spread = (i - (count - 1) / 2) * 0.18;
+    const spread = (i - (count - 1) / 2) * (stream ? 0.045 : 0.12);
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + spread;
+    const trailOffset = stream ? i * 9 : i * 4;
+    const sideOffset = stream ? Math.sin(i * 1.7 + state.elapsed * 9) * 3 : 0;
+    const sideX = Math.cos(angle + Math.PI / 2) * sideOffset;
+    const sideY = Math.sin(angle + Math.PI / 2) * sideOffset;
     state.projectiles.push({
-      x: p.x,
-      y: p.y - 4,
-      vx: Math.cos(angle) * (evolved ? 560 : 470),
-      vy: Math.sin(angle) * (evolved ? 560 : 470),
-      damage: (10 + level * 3.2) * p.might,
-      life: evolved ? 1.7 : 1.25,
+      x: p.x - Math.cos(angle) * trailOffset + sideX,
+      y: p.y - 5 - Math.sin(angle) * trailOffset + sideY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      damage: ((stream ? 5.2 : 8.5) + level * (stream ? 1.55 : 2.6)) * p.might,
+      life: ascended ? 1.95 : evolved ? 1.75 : stream ? 1.42 : 1.15,
       angle,
       kind: "aqua",
-      pierce: state.ascended.frost ? 3 : evolved ? 1 : 0,
+      hitRadius,
+      stream,
+      evolved,
+      pierce: ascended ? 5 : evolved ? 3 : level >= 6 ? 1 : 0,
     });
   }
 }
@@ -1133,7 +1144,7 @@ function updateWeapons(dt) {
     timers.frost -= dt;
     if (timers.frost <= 0) {
       fireAquaShot();
-      timers.frost = Math.max(0.28, 1.08 - levels.frost * 0.07);
+      timers.frost = Math.max(0.18, (0.88 - levels.frost * 0.055) * (state.evolved.frost ? 0.78 : 1));
     }
   }
 
@@ -1195,13 +1206,15 @@ function updateProjectiles(dt) {
 
     for (const enemy of state.enemies) {
       if (projectile.life <= 0) continue;
-      if (circleHitsActor(projectile.x, projectile.y, projectile.kind === "chainvolt" ? 7 : 5, enemy)) {
+      const projectileRadius = projectile.hitRadius || (projectile.kind === "chainvolt" ? 7 : 5);
+      if (circleHitsActor(projectile.x, projectile.y, projectileRadius, enemy)) {
         enemy.hp -= projectile.damage;
         enemy.hitFlash = 1;
         if (projectile.kind === "chainvolt") chainVoltFrom(enemy, projectile);
         if (projectile.pierce > 0) projectile.pierce -= 1;
         else projectile.life = 0;
-        addParticles(enemy.x, enemy.y, projectile.kind === "chainvolt" ? "#fff86b" : "#e8edf4", 6);
+        const color = projectile.kind === "chainvolt" ? "#fff86b" : projectile.kind === "aqua" ? "#7fe4ff" : "#e8edf4";
+        addParticles(enemy.x, enemy.y, color, projectile.kind === "aqua" ? 4 : 6);
       }
     }
   }
@@ -1458,7 +1471,7 @@ function buildUpgradePool() {
   if (levels.frost === 0) {
     choices.push({ name: "Unlock Aqua Shot", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
   } else if (!state.evolved.frost) {
-    choices.push({ name: "Pressurized Shot", text: "Aqua Shot fires faster, hits harder, and gains more shots", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
+    choices.push({ name: "Pressurized Shot", text: "Aqua Shot fires faster, gains more droplets, and grows into a water stream", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
   if (levels.wave === 0) {
@@ -2121,10 +2134,23 @@ function drawProjectiles() {
         drawPixelRect(-1, -1, 3, 3, "#a37bd1");
       }
     } else if (projectile.kind === "aqua") {
-      drawPixelRect(-12, -3, 18, 6, "#6ed8ff");
-      drawPixelRect(4, -5, 8, 10, "#d6fbff");
-      drawPixelRect(-15, -2, 5, 4, "#2f91d1");
-      drawPixelRect(-6, -1, 7, 2, "#ffffff");
+      if (projectile.stream) {
+        const length = projectile.evolved ? 34 : 26;
+        const width = Math.max(5, projectile.hitRadius || 7);
+        drawPixelRect(-length, -Math.floor(width / 2), length + 12, width, "#5ecfff");
+        drawPixelRect(-length + 5, -Math.max(1, Math.floor(width / 4)), length, Math.max(2, Math.floor(width / 2)), "#d6fbff");
+        drawPixelRect(6, -Math.floor(width / 2) - 2, 8, width + 4, "#ffffff");
+        drawPixelRect(-length - 7, -2, 8, 4, "#2f91d1");
+        if (projectile.evolved) {
+          drawPixelRect(-length + 2, -Math.floor(width / 2) - 3, length - 6, 2, "#b7f3ff");
+          drawPixelRect(-length + 2, Math.floor(width / 2) + 1, length - 6, 2, "#b7f3ff");
+        }
+      } else {
+        drawPixelRect(-10, -3, 14, 6, "#6ed8ff");
+        drawPixelRect(3, -5, 7, 10, "#d6fbff");
+        drawPixelRect(-13, -2, 5, 4, "#2f91d1");
+        drawPixelRect(-5, -1, 6, 2, "#ffffff");
+      }
     } else if (projectile.kind === "chainvolt") {
       drawPixelRect(-12, -2, 16, 4, "#fff86b");
       drawPixelRect(1, -5, 8, 10, "#ffffff");
