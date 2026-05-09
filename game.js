@@ -610,10 +610,19 @@ function weightedPick(entries) {
   return entries[entries.length - 1].type;
 }
 
+function ascensionCount() {
+  return state ? Object.keys(state.ascended).length : 0;
+}
+
+function ascensionPressure() {
+  return Math.min(4, ascensionCount());
+}
+
 function chooseEnemyType() {
   const t = state.elapsed;
   const level = state.player.level;
   const pressure = Math.max(t / 60, level * 0.55);
+  const ascensions = ascensionPressure();
   const weights = [
     { type: "walker", weight: Math.max(0.35, 8 - pressure * 0.9) },
     { type: "runner", weight: t > 18 || level >= 4 ? 2.2 + pressure * 0.35 : 0 },
@@ -636,6 +645,12 @@ function chooseEnemyType() {
     weights[2].weight *= 1.55;
     weights[3].weight *= 1.55;
   }
+  if (ascensions > 0) {
+    weights[0].weight *= Math.max(0.1, 0.42 - ascensions * 0.07);
+    weights[1].weight *= 1.05 + ascensions * 0.08;
+    weights[2].weight *= 1.25 + ascensions * 0.16;
+    weights[3].weight *= 1.35 + ascensions * 0.18;
+  }
 
   return weightedPick(weights.filter((entry) => entry.weight > 0));
 }
@@ -643,7 +658,8 @@ function chooseEnemyType() {
 function nextBossDelay() {
   const level = state.player.level;
   const pressure = state.elapsed / 60 + level * 0.35;
-  return Math.max(18, 42 - pressure * 2.4);
+  const ascensions = ascensionPressure();
+  return Math.max(10, 42 - pressure * 2.4 - ascensions * 4.5);
 }
 
 function spawnEnemy(boss = false, eliteBoss = false) {
@@ -663,16 +679,21 @@ function spawnEnemy(boss = false, eliteBoss = false) {
   const scale = eliteBoss ? 2.28 : boss ? 1.75 : rand(0.9, 1.15) * typeDef.scale;
   const baseHp = eliteBoss ? 190 : boss ? 72 : 13;
   const hpGrowth = eliteBoss ? 72 : boss ? 32 : 4.5;
+  const ascensions = ascensionPressure();
+  const hpMultiplier = 1 + ascensions * (eliteBoss ? 0.22 : boss ? 0.16 : 0.11);
+  const speedMultiplier = 1 + ascensions * (boss ? 0.045 : 0.065);
+  const damageMultiplier = 1 + ascensions * (eliteBoss ? 0.13 : boss ? 0.11 : 0.08);
   const bossPatterns = ["fan", "nova", "slam"];
+  const hp = (baseHp + minutes * hpGrowth) * typeDef.hp * hpMultiplier;
   state.enemies.push({
     x: pos.x,
     y: pos.y,
     w: 21 * scale,
     h: 27 * scale,
-    hp: (baseHp + minutes * hpGrowth) * typeDef.hp,
-    maxHp: (baseHp + minutes * hpGrowth) * typeDef.hp,
-    speed: ((eliteBoss ? 68 : boss ? 54 : rand(66, 104)) + minutes * (eliteBoss ? 5.2 : 3.5)) * typeDef.speed,
-    damage: (eliteBoss ? 42 : boss ? 25 : 12) * typeDef.damage,
+    hp,
+    maxHp: hp,
+    speed: ((eliteBoss ? 68 : boss ? 54 : rand(66, 104)) + minutes * (eliteBoss ? 5.2 : 3.5)) * typeDef.speed * speedMultiplier,
+    damage: (eliteBoss ? 42 : boss ? 25 : 12) * typeDef.damage * damageMultiplier,
     xp: (eliteBoss ? 85 : boss ? 28 : 1.45) * typeDef.xp,
     boss,
     eliteBoss,
@@ -1436,7 +1457,9 @@ function ascendWeapon(key, ascension) {
   state.attacks.push({ x: state.player.x, y: state.player.y, radius: 310, facing: 1, life: 0.8, maxLife: 0.8, shape: "evolve" });
   if (firstAscension) {
     spawnEnemy(true, true);
-    state.bossTimer = Math.min(state.bossTimer, 22);
+    state.bossTimer = Math.min(state.bossTimer, 12);
+  } else {
+    state.bossTimer = Math.min(state.bossTimer, 16);
   }
   console.log(`ascended: ${ascension.name}`);
 }
@@ -1792,16 +1815,18 @@ function update(dt) {
   state.camera.x += (p.x - innerWidth / 2 - state.camera.x) * Math.min(1, dt * 8);
   state.camera.y += (p.y - innerHeight / 2 - state.camera.y) * Math.min(1, dt * 8);
 
-  const spawnRate = Math.max(0.17, 0.8 - state.elapsed / 190);
+  const ascensions = ascensionPressure();
+  const spawnRate = Math.max(ascensions > 0 ? 0.1 : 0.17, 0.8 - state.elapsed / 190 - ascensions * 0.075);
   if (state.spawnTimer <= 0) {
-    const count = Math.min(5, 1 + Math.floor(state.elapsed / 50));
+    const count = Math.min(5 + ascensions * 2, 1 + Math.floor(state.elapsed / 50) + ascensions);
     for (let i = 0; i < count; i += 1) spawnEnemy(false);
     state.spawnTimer = spawnRate;
   }
   if (state.bossTimer <= 0) {
-    const hasAscension = Object.keys(state.ascended).length > 0;
-    spawnEnemy(true, hasAscension && Math.random() < 0.65);
-    if (state.elapsed > 220 || p.level >= 18) spawnEnemy(true, hasAscension && Math.random() < 0.35);
+    const hasAscension = ascensions > 0;
+    spawnEnemy(true, hasAscension && Math.random() < Math.min(0.9, 0.55 + ascensions * 0.12));
+    if (hasAscension && Math.random() < Math.min(0.75, 0.18 + ascensions * 0.16)) spawnEnemy(false);
+    if (state.elapsed > 220 || p.level >= 18 || ascensions >= 2) spawnEnemy(true, hasAscension && Math.random() < Math.min(0.65, 0.22 + ascensions * 0.12));
     state.bossTimer = nextBossDelay();
   }
 
@@ -1839,7 +1864,11 @@ function update(dt) {
 
     if (enemy.boss && enemy.bossSkillTimer <= 0 && enemyDistance < 760) {
       castBossPattern(enemy);
-      enemy.bossSkillTimer = rand(enemy.eliteBoss ? 2.3 : 3.2, enemy.eliteBoss ? 4.0 : 5.4);
+      const bossPressure = ascensionPressure();
+      enemy.bossSkillTimer = rand(
+        Math.max(1.5, (enemy.eliteBoss ? 2.3 : 3.2) - bossPressure * 0.18),
+        Math.max(2.5, (enemy.eliteBoss ? 4.0 : 5.4) - bossPressure * 0.32)
+      );
       if (enemy.eliteBoss && Math.random() < 0.35) {
         enemy.bossPattern = ["fan", "nova", "slam"][Math.floor(Math.random() * 3)];
       }
