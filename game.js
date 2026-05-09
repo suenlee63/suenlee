@@ -1206,55 +1206,55 @@ function buildUpgradePool() {
 
   if (levels.knives === 0) {
     choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, weapon: "knives", apply: (game) => game.weaponLevels.knives = 1 });
-  } else {
+  } else if (!state.evolved.knives) {
     choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", weapon: "knives", apply: (game) => upgradeWeaponLevel(game, "knives") });
   }
 
   if (levels.fire === 0) {
     choices.push({ name: "Unlock Fire Bottles", text: weaponDefs.fire.desc, weapon: "fire", apply: (game) => game.weaponLevels.fire = 1 });
-  } else {
+  } else if (!state.evolved.fire) {
     choices.push({ name: "Hotter Fire", text: "Fire lasts longer and burns harder", weapon: "fire", apply: (game) => upgradeWeaponLevel(game, "fire") });
   }
 
   if (levels.coil === 0) {
     choices.push({ name: "Unlock Shock Coil", text: weaponDefs.coil.desc, weapon: "coil", apply: (game) => game.weaponLevels.coil = 1 });
-  } else {
+  } else if (!state.evolved.coil) {
     choices.push({ name: "Overcharged Coil", text: "Bigger electric pulse damage", weapon: "coil", apply: (game) => upgradeWeaponLevel(game, "coil") });
   }
 
   if (levels.tome === 0) {
     choices.push({ name: "Unlock Moon Tome", text: weaponDefs.tome.desc, weapon: "tome", apply: (game) => game.weaponLevels.tome = 1 });
-  } else {
+  } else if (!state.evolved.tome) {
     choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", weapon: "tome", apply: (game) => upgradeWeaponLevel(game, "tome") });
   }
 
   if (levels.lightning === 0) {
     choices.push({ name: "Unlock Lightning Rod", text: weaponDefs.lightning.desc, weapon: "lightning", apply: (game) => game.weaponLevels.lightning = 1 });
-  } else {
+  } else if (!state.evolved.lightning) {
     choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", weapon: "lightning", apply: (game) => upgradeWeaponLevel(game, "lightning") });
   }
 
   if (levels.bat === 0) {
     choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, weapon: "bat", apply: (game) => game.weaponLevels.bat = 1 });
-  } else {
+  } else if (!state.evolved.bat) {
     choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", weapon: "bat", apply: (game) => upgradeWeaponLevel(game, "bat") });
   }
 
   if (levels.frost === 0) {
     choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
-  } else {
+  } else if (!state.evolved.frost) {
     choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
   if (levels.poison === 0) {
     choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, weapon: "poison", apply: (game) => game.weaponLevels.poison = 1 });
-  } else {
+  } else if (!state.evolved.poison) {
     choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", weapon: "poison", apply: (game) => upgradeWeaponLevel(game, "poison") });
   }
 
   if (levels.beam === 0) {
     choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
-  } else {
+  } else if (!state.evolved.beam) {
     choices.push({ name: "Focused Beam", text: "Beam width and piercing damage grow with each level", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
   }
 
