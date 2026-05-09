@@ -1122,47 +1122,47 @@ function updateEvolutionReadiness() {
   state.evolutionStage.knives = evolutionStage([
     w.knives >= 2,
     w.knives >= 4 && p.attackRate <= 0.72,
-    w.knives >= 6 && p.attackRate <= 0.68 && state.elapsed >= 240,
+    w.knives >= 6 && p.attackRate <= 0.68,
   ]);
   state.evolutionStage.fire = evolutionStage([
     w.fire >= 2,
     w.fire >= 4 && p.attackRadius >= 2,
-    w.fire >= 6 && p.attackRadius >= 2 && state.elapsed >= 240,
+    w.fire >= 6 && p.attackRadius >= 2,
   ]);
   state.evolutionStage.coil = evolutionStage([
     w.coil >= 2,
     w.coil >= 4 && p.regen >= 1.8,
-    w.coil >= 6 && p.regen >= 2.0 && state.elapsed >= 270,
+    w.coil >= 6 && p.regen >= 2.0,
   ]);
   state.evolutionStage.tome = evolutionStage([
     w.tome >= 2,
     w.tome >= 4 && p.pickup >= 115,
-    w.tome >= 6 && p.pickup >= 125 && state.elapsed >= 270,
+    w.tome >= 6 && p.pickup >= 125,
   ]);
   state.evolutionStage.lightning = evolutionStage([
     w.lightning >= 2,
     w.lightning >= 4 && p.might >= 1.08,
-    w.lightning >= 6 && p.might >= 1.12 && state.elapsed >= 270,
+    w.lightning >= 6 && p.might >= 1.12,
   ]);
   state.evolutionStage.bat = evolutionStage([
     w.bat >= 2,
     w.bat >= 4 && p.speed >= 245,
-    w.bat >= 6 && p.speed >= 255 && state.elapsed >= 270,
+    w.bat >= 6 && p.speed >= 255,
   ]);
   state.evolutionStage.frost = evolutionStage([
     w.frost >= 2,
     w.frost >= 4 && p.regen >= 1.8,
-    w.frost >= 6 && p.regen >= 2.1 && state.elapsed >= 270,
+    w.frost >= 6 && p.regen >= 2.1,
   ]);
   state.evolutionStage.poison = evolutionStage([
     w.poison >= 2,
     w.poison >= 4 && p.pickup >= 115,
-    w.poison >= 6 && p.pickup >= 125 && state.elapsed >= 270,
+    w.poison >= 6 && p.pickup >= 125,
   ]);
   state.evolutionStage.beam = evolutionStage([
     w.beam >= 2,
     w.beam >= 4 && p.might >= 1.1,
-    w.beam >= 6 && p.might >= 1.16 && state.elapsed >= 270,
+    w.beam >= 6 && p.might >= 1.16,
   ]);
 
   for (const key of Object.keys(state.evolutionReady)) {
