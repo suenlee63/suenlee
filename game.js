@@ -246,8 +246,8 @@ const alchemistSprite = [
 const characterDefs = {
   hunter: {
     name: "Crimson Hunter",
-    trait: "Blade specialist. Cleaver and knife upgrades appear more often.",
-    affinity: ["cleaver", "knives", "knives"],
+    trait: "Blade specialist. Cleaver and knife skills are stronger and appear more often.",
+    affinity: ["cleaver", "cleaver", "knives", "knives", "knives"],
     sprite: playerSprite,
     palette: palettes.player,
     hp: 120,
@@ -257,6 +257,7 @@ const characterDefs = {
     might: 1,
     attackRate: 0.78,
     pickup: 92,
+    bladeBonus: 1.18,
   },
   spark: {
     name: "Pikachu",
@@ -363,9 +364,9 @@ const passiveUpgrades = [
 
 const evolutionDefs = {
   knives: [
-    { name: "Blade Rain", text: "Evolve knives into a dense multi-blade storm", apply: (game) => game.player.might *= 1.08 },
-    { name: "Blood Needles", text: "Evolve knives and gain faster basic slashes", apply: (game) => game.player.attackRate *= 0.9 },
-    { name: "Phantom Daggers", text: "Evolve knives and gain movement speed", apply: (game) => game.player.speed *= 1.08 },
+    { name: "Blade Rain", text: "Evolve knives into a dense multi-blade storm", apply: (game) => game.player.might *= 1.12 },
+    { name: "Blood Needles", text: "Evolve knives and gain faster basic slashes", apply: (game) => game.player.attackRate *= 0.86 },
+    { name: "Phantom Daggers", text: "Evolve knives and gain movement speed", apply: (game) => game.player.speed *= 1.12 },
   ],
   fire: [
     { name: "Fire Storm", text: "Evolve bottles into larger burning fields", apply: (game) => game.player.hazardBonus *= 1.08 },
@@ -420,7 +421,7 @@ const evolutionDefs = {
 };
 
 const ascensionDefs = {
-  knives: { name: "Astral Blade Rain", text: "Ascend knives into their final form. Level jumps beyond the evolved limit.", apply: (game) => game.player.might *= 1.14 },
+  knives: { name: "Astral Blade Rain", text: "Ascend knives into their final form. Level jumps beyond the evolved limit.", apply: (game) => game.player.might *= 1.2 },
   fire: { name: "Inferno Storm", text: "Ascend fire into its final form. Burning zones surge harder.", apply: (game) => game.player.hazardBonus *= 1.14 },
   coil: { name: "Godspark Coil", text: "Ascend coil into its final form. Electric power and recovery rise.", apply: (game) => { game.player.might *= 1.08; game.player.regen += 0.8; } },
   tome: { name: "Lunar Singularity", text: "Ascend tome into its final form. Orbit power and XP gain rise.", apply: (game) => { game.player.might *= 1.08; game.player.xpGain *= 1.14; } },
@@ -467,6 +468,7 @@ function newGame() {
       might: character.might,
       pickup: character.pickup,
       xpGain: 1,
+      bladeBonus: character.bladeBonus || 1,
       dropBonus: character.dropBonus || 0,
       hazardBonus: character.hazardBonus || 1,
       invulnerable: 0,
@@ -666,13 +668,13 @@ function spawnEnemy(boss = false) {
 function performAreaAttack() {
   const p = state.player;
   const evolved = state.evolved.cleaver;
-  const radius = (44 + p.attackRadius * 22) * (evolved ? 1.2 : 1);
-  const arc = evolved ? 1.55 : 1.15;
+  const radius = (44 + p.attackRadius * 24) * (evolved ? 1.2 : 1) * (p.bladeBonus > 1 ? 1.08 : 1);
+  const arc = (evolved ? 1.55 : 1.2) + (p.bladeBonus > 1 ? 0.12 : 0);
   state.attacks.push({ x: p.x, y: p.y, radius, facing: p.facing, arc, evolved, shape: "arc", life: evolved ? 0.32 : 0.22, maxLife: evolved ? 0.32 : 0.22 });
 
   for (const enemy of state.enemies) {
     if (arcHitsActor(p.x, p.y, p.facing, radius, arc, enemy)) {
-      enemy.hp -= p.damage * p.might;
+      enemy.hp -= p.damage * p.might * p.bladeBonus;
       enemy.hitFlash = 1;
       addParticles(enemy.x, enemy.y, enemy.boss ? "#c05cff" : "#d5e879", enemy.boss ? 18 : 8);
     }
@@ -740,7 +742,7 @@ function fireKnife() {
 
   const p = state.player;
   const evolved = state.evolved.knives;
-  const count = (evolved ? 4 : 1) + Math.floor(level / 3);
+  const count = (evolved ? 4 : 1) + Math.floor(level / 3) + (p.bladeBonus > 1 && level >= 4 ? 1 : 0);
   for (let i = 0; i < count; i += 1) {
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + (i - (count - 1) / 2) * (evolved ? 0.28 : 0.16);
     state.projectiles.push({
@@ -748,7 +750,7 @@ function fireKnife() {
       y: p.y - 8,
       vx: Math.cos(angle) * 500,
       vy: Math.sin(angle) * 500,
-      damage: (5 + level * 2) * p.might,
+      damage: (6 + level * 2.4) * p.might * p.bladeBonus,
       life: 1.35,
       angle,
       kind: "knife",
@@ -990,7 +992,8 @@ function updateWeapons(dt) {
     timers.knives -= dt;
     if (timers.knives <= 0) {
       fireKnife();
-      timers.knives = Math.max(0.34, 1.08 - levels.knives * 0.08);
+      const hunterBladeRate = state.player.bladeBonus > 1 ? 0.86 : 1;
+      timers.knives = Math.max(0.26, (1.02 - levels.knives * 0.085) * hunterBladeRate);
     }
   }
 
@@ -1370,11 +1373,12 @@ function buildUpgradePool() {
   }
 
   const cleaverUpgrades = [
-    { name: "Faster Cleave", text: "Grid Cleaver cooldown -16%", weapon: "cleaver", apply: (game) => game.player.attackRate *= 0.84 },
-    { name: "Heavy Cleave", text: "Grid Cleaver damage +2", weapon: "cleaver", apply: (game) => game.player.damage += 2 },
-    { name: "Wider Cleave", text: "Grid Cleaver radius +1", weapon: "cleaver", apply: (game) => game.player.attackRadius += 1 },
+    { name: "Faster Cleave", text: "Grid Cleaver cooldown -20%", weapon: "cleaver", apply: (game) => game.player.attackRate *= 0.8 },
+    { name: "Heavy Cleave", text: "Grid Cleaver damage +3", weapon: "cleaver", apply: (game) => game.player.damage += 3 },
+    { name: "Wider Cleave", text: "Grid Cleaver radius +2", weapon: "cleaver", apply: (game) => game.player.attackRadius += 2 },
   ];
-  if (Math.random() < 0.35) {
+  const cleaverChance = state.player.bladeBonus > 1 ? 0.72 : 0.35;
+  if (Math.random() < cleaverChance) {
     choices.push(cleaverUpgrades[Math.floor(Math.random() * cleaverUpgrades.length)]);
   }
 
