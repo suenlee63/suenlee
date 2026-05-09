@@ -42,6 +42,7 @@ const weaponDefs = {
   coil: { name: "Shock Coil", desc: "Pulses electricity around you" },
   tome: { name: "Moon Tome", desc: "Rotating books carve a safe ring" },
   lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
+  chainvolt: { name: "Million Volt", desc: "A chained electric shot that jumps between enemies" },
   bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
   frost: { name: "Aqua Shot", desc: "Fires a focused water shot at one enemy" },
   wave: { name: "Tidal Wave", desc: "Sends a cute water burst around you" },
@@ -264,8 +265,8 @@ const characterDefs = {
   },
   spark: {
     name: "Pikachu",
-    trait: "Electric striker. Lightning Rod and Sun Beam appear more often.",
-    affinity: ["lightning", "lightning", "beam", "beam"],
+    trait: "Electric striker. Lightning Rod, Million Volt, and Sun Beam appear more often.",
+    affinity: ["lightning", "lightning", "chainvolt", "chainvolt", "chainvolt", "beam", "beam"],
     sprite: sparkSprite,
     palette: palettes.spark,
     hp: 95,
@@ -391,6 +392,11 @@ const evolutionDefs = {
     { name: "Storm Step", text: "Evolve lightning and gain speed", apply: (game) => game.player.speed *= 1.1 },
     { name: "Volt Halo", text: "Evolve lightning and quicken basic attacks", apply: (game) => game.player.attackRate *= 0.9 },
   ],
+  chainvolt: [
+    { name: "Thunder Link", text: "Evolve Million Volt into a longer chain strike", apply: (game) => game.player.might *= 1.1 },
+    { name: "Static Web", text: "Evolve Million Volt and gain attack speed", apply: (game) => game.player.attackRate *= 0.88 },
+    { name: "Over Spark", text: "Evolve Million Volt and gain movement speed", apply: (game) => game.player.speed *= 1.1 },
+  ],
   bat: [
     { name: "Night Flock", text: "Evolve bat into a swarm of diving spirits", apply: (game) => game.player.speed *= 1.08 },
     { name: "Vampire Wing", text: "Evolve bat and gain health regeneration", apply: (game) => game.player.regen += 0.8 },
@@ -429,6 +435,7 @@ const ascensionDefs = {
   coil: { name: "Godspark Coil", text: "Ascend coil into its final form. Electric power and recovery rise.", apply: (game) => { game.player.might *= 1.08; game.player.regen += 0.8; } },
   tome: { name: "Lunar Singularity", text: "Ascend tome into its final form. Orbit power and XP gain rise.", apply: (game) => { game.player.might *= 1.08; game.player.xpGain *= 1.14; } },
   lightning: { name: "Heaven Breaker", text: "Ascend lightning into its final form. Strikes hit with final power.", apply: (game) => game.player.might *= 1.16 },
+  chainvolt: { name: "Ten Million Volt", text: "Ascend Million Volt into its final form. Chains surge through the horde.", apply: (game) => game.player.might *= 1.18 },
   bat: { name: "Eclipse Flock", text: "Ascend bat into its final form. Speed and damage rise.", apply: (game) => { game.player.speed *= 1.08; game.player.might *= 1.08; } },
   frost: { name: "Hydro Cannon", text: "Ascend Aqua Shot into its final form. Single-target water damage peaks.", apply: (game) => game.player.might *= 1.16 },
   wave: { name: "Ocean Heart", text: "Ascend wave into its final form. Water power and speed rise.", apply: (game) => { game.player.speed *= 1.1; game.player.might *= 1.08; } },
@@ -498,6 +505,7 @@ function newGame() {
       coil: 0,
       tome: 0,
       lightning: 0,
+      chainvolt: 0,
       bat: 0,
       frost: 0,
       wave: 0,
@@ -511,6 +519,7 @@ function newGame() {
       coil: false,
       tome: false,
       lightning: false,
+      chainvolt: false,
       bat: false,
       frost: false,
       wave: false,
@@ -527,6 +536,7 @@ function newGame() {
       coil: false,
       tome: false,
       lightning: false,
+      chainvolt: false,
       bat: false,
       frost: false,
       wave: false,
@@ -540,6 +550,7 @@ function newGame() {
       coil: 0,
       tome: 0,
       lightning: 0,
+      chainvolt: 0,
       bat: 0,
       frost: 0,
       wave: 0,
@@ -552,6 +563,7 @@ function newGame() {
       fire: 0.7,
       coil: 2.4,
       lightning: 2.0,
+      chainvolt: 1.25,
       bat: 1.0,
       frost: 1.8,
       wave: 1.6,
@@ -836,6 +848,77 @@ function callLightning() {
   }
 }
 
+function fireChainVolt() {
+  const p = state.player;
+  const level = state.weaponLevels.chainvolt;
+  const target = nearestEnemy(840);
+  if (!target) return;
+
+  const evolved = state.evolved.chainvolt;
+  const ascended = state.ascended.chainvolt;
+  const count = (ascended ? 3 : evolved ? 2 : 1) + Math.floor(level / 5);
+  for (let i = 0; i < count; i += 1) {
+    const spread = (i - (count - 1) / 2) * 0.2;
+    const angle = Math.atan2(target.y - p.y, target.x - p.x) + spread;
+    state.projectiles.push({
+      x: p.x,
+      y: p.y - 8,
+      vx: Math.cos(angle) * (evolved ? 580 : 490),
+      vy: Math.sin(angle) * (evolved ? 580 : 490),
+      damage: (8 + level * 2.8) * p.might,
+      life: evolved ? 1.45 : 1.15,
+      angle,
+      kind: "chainvolt",
+      pierce: 0,
+      chains: ascended ? 6 : evolved ? 4 : 2 + Math.floor(level / 4),
+      chainRange: ascended ? 280 : evolved ? 225 : 170,
+      chainFalloff: ascended ? 0.82 : 0.76,
+      evolved,
+    });
+  }
+}
+
+function chainVoltFrom(source, projectile) {
+  if (!projectile.chains) return;
+  if (!projectile.hitTargets) projectile.hitTargets = new Set();
+  projectile.hitTargets.add(source);
+
+  let current = source;
+  let damage = projectile.damage * projectile.chainFalloff;
+  for (let i = 0; i < projectile.chains; i += 1) {
+    let next = null;
+    let best = projectile.chainRange;
+    for (const enemy of state.enemies) {
+      if (enemy.hp <= 0 || projectile.hitTargets.has(enemy)) continue;
+      const distance = dist(current, enemy);
+      if (distance < best) {
+        best = distance;
+        next = enemy;
+      }
+    }
+    if (!next) break;
+
+    next.hp -= damage;
+    next.hitFlash = 1;
+    projectile.hitTargets.add(next);
+    state.hazards.push({
+      x: (current.x + next.x) / 2,
+      y: (current.y + next.y) / 2,
+      x1: current.x,
+      y1: current.y,
+      x2: next.x,
+      y2: next.y,
+      life: 0.18,
+      maxLife: 0.18,
+      evolved: projectile.evolved,
+      kind: "chainvolt",
+    });
+    addParticles(next.x, next.y, "#fff86b", 6);
+    current = next;
+    damage *= projectile.chainFalloff;
+  }
+}
+
 function sendSpiritBat() {
   const p = state.player;
   const level = state.weaponLevels.bat;
@@ -1030,6 +1113,14 @@ function updateWeapons(dt) {
     }
   }
 
+  if (levels.chainvolt > 0) {
+    timers.chainvolt -= dt;
+    if (timers.chainvolt <= 0) {
+      fireChainVolt();
+      timers.chainvolt = Math.max(0.36, (1.28 - levels.chainvolt * 0.075) * (state.evolved.chainvolt ? 0.86 : 1));
+    }
+  }
+
   if (levels.bat > 0) {
     timers.bat -= dt;
     if (timers.bat <= 0) {
@@ -1104,12 +1195,13 @@ function updateProjectiles(dt) {
 
     for (const enemy of state.enemies) {
       if (projectile.life <= 0) continue;
-      if (circleHitsActor(projectile.x, projectile.y, 5, enemy)) {
+      if (circleHitsActor(projectile.x, projectile.y, projectile.kind === "chainvolt" ? 7 : 5, enemy)) {
         enemy.hp -= projectile.damage;
         enemy.hitFlash = 1;
+        if (projectile.kind === "chainvolt") chainVoltFrom(enemy, projectile);
         if (projectile.pierce > 0) projectile.pierce -= 1;
         else projectile.life = 0;
-        addParticles(enemy.x, enemy.y, "#e8edf4", 6);
+        addParticles(enemy.x, enemy.y, projectile.kind === "chainvolt" ? "#fff86b" : "#e8edf4", 6);
       }
     }
   }
@@ -1351,6 +1443,12 @@ function buildUpgradePool() {
     choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", weapon: "lightning", apply: (game) => upgradeWeaponLevel(game, "lightning") });
   }
 
+  if (levels.chainvolt === 0) {
+    choices.push({ name: "Unlock Million Volt", text: weaponDefs.chainvolt.desc, weapon: "chainvolt", apply: (game) => game.weaponLevels.chainvolt = 1 });
+  } else if (!state.evolved.chainvolt) {
+    choices.push({ name: "Overcharge Million Volt", text: "More chain jumps, faster shots, and stronger shock damage", weapon: "chainvolt", apply: (game) => upgradeWeaponLevel(game, "chainvolt") });
+  }
+
   if (levels.bat === 0) {
     choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, weapon: "bat", apply: (game) => game.weaponLevels.bat = 1 });
   } else if (!state.evolved.bat) {
@@ -1458,6 +1556,11 @@ function updateEvolutionReadiness() {
     w.lightning >= 2,
     w.lightning >= 4,
     w.lightning >= 6,
+  ]);
+  state.evolutionStage.chainvolt = evolutionStage([
+    w.chainvolt >= 2,
+    w.chainvolt >= 4,
+    w.chainvolt >= 6,
   ]);
   state.evolutionStage.bat = evolutionStage([
     w.bat >= 2,
@@ -1959,6 +2062,27 @@ function drawHazards() {
         ctx.arc(x, y, hazard.r * 1.2, 0, Math.PI * 2);
         ctx.stroke();
       }
+    } else if (hazard.kind === "chainvolt") {
+      const x1 = hazard.x1 - state.camera.x;
+      const y1 = hazard.y1 - state.camera.y;
+      const x2 = hazard.x2 - state.camera.x;
+      const y2 = hazard.y2 - state.camera.y;
+      const midX = (x1 + x2) / 2 + Math.sin(state.elapsed * 40) * 9;
+      const midY = (y1 + y2) / 2 + Math.cos(state.elapsed * 36) * 9;
+      ctx.strokeStyle = hazard.evolved ? `rgba(255, 255, 255, ${0.95 * alpha})` : `rgba(255, 248, 107, ${0.9 * alpha})`;
+      ctx.lineWidth = hazard.evolved ? 5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(midX, midY);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(255, 205, 43, ${0.45 * alpha})`;
+      ctx.lineWidth = hazard.evolved ? 12 : 8;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(midX, midY);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
     } else if (hazard.kind === "beam") {
       ctx.save();
       ctx.translate(x, y);
@@ -2001,6 +2125,12 @@ function drawProjectiles() {
       drawPixelRect(4, -5, 8, 10, "#d6fbff");
       drawPixelRect(-15, -2, 5, 4, "#2f91d1");
       drawPixelRect(-6, -1, 7, 2, "#ffffff");
+    } else if (projectile.kind === "chainvolt") {
+      drawPixelRect(-12, -2, 16, 4, "#fff86b");
+      drawPixelRect(1, -5, 8, 10, "#ffffff");
+      drawPixelRect(-15, -1, 6, 2, "#ffb52b");
+      drawPixelRect(-4, -7, 4, 5, "#ffd743");
+      drawPixelRect(-4, 2, 4, 5, "#ffd743");
     } else {
       drawPixelRect(-9, -1, 14, 3, "#d8d6ca");
       drawPixelRect(5, -2, 5, 5, "#f4d891");
