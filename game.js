@@ -631,7 +631,7 @@ function nextBossDelay() {
   return Math.max(18, 42 - pressure * 2.4);
 }
 
-function spawnEnemy(boss = false) {
+function spawnEnemy(boss = false, eliteBoss = false) {
   const side = Math.floor(Math.random() * 4);
   const margin = 80;
   const cam = state.camera;
@@ -645,19 +645,21 @@ function spawnEnemy(boss = false) {
   const minutes = state.elapsed / 60;
   const type = boss ? "boss" : chooseEnemyType();
   const typeDef = boss ? { speed: 1, hp: 1, damage: 1, xp: 1, scale: 1 } : enemyTypeDefs[type];
-  const scale = boss ? 1.75 : rand(0.9, 1.15) * typeDef.scale;
-  const baseHp = boss ? 72 : 13;
+  const scale = eliteBoss ? 2.28 : boss ? 1.75 : rand(0.9, 1.15) * typeDef.scale;
+  const baseHp = eliteBoss ? 190 : boss ? 72 : 13;
+  const hpGrowth = eliteBoss ? 72 : boss ? 32 : 4.5;
   state.enemies.push({
     x: pos.x,
     y: pos.y,
     w: 21 * scale,
     h: 27 * scale,
-    hp: (baseHp + minutes * (boss ? 32 : 4.5)) * typeDef.hp,
-    maxHp: (baseHp + minutes * (boss ? 32 : 4.5)) * typeDef.hp,
-    speed: ((boss ? 54 : rand(66, 104)) + minutes * 3.5) * typeDef.speed,
-    damage: (boss ? 25 : 12) * typeDef.damage,
-    xp: (boss ? 28 : 1.45) * typeDef.xp,
+    hp: (baseHp + minutes * hpGrowth) * typeDef.hp,
+    maxHp: (baseHp + minutes * hpGrowth) * typeDef.hp,
+    speed: ((eliteBoss ? 68 : boss ? 54 : rand(66, 104)) + minutes * (eliteBoss ? 5.2 : 3.5)) * typeDef.speed,
+    damage: (eliteBoss ? 42 : boss ? 25 : 12) * typeDef.damage,
+    xp: (eliteBoss ? 85 : boss ? 28 : 1.45) * typeDef.xp,
     boss,
+    eliteBoss,
     type,
     shootTimer: type === "spitter" ? rand(1.0, 2.2) : 999,
     hitFlash: 0,
@@ -1250,6 +1252,7 @@ function upgradeWeaponLevel(game, key) {
 
 function ascendWeapon(key, ascension) {
   if (state.ascended[key]) return;
+  const firstAscension = Object.keys(state.ascended).length === 0;
   state.ascended[key] = ascension.name;
   state.evolutionNames[key] = ascension.name;
   state.weaponLevels[key] = Math.max(14, state.weaponLevels[key]);
@@ -1259,6 +1262,10 @@ function ascendWeapon(key, ascension) {
   state.shake = 1.8;
   addParticles(state.player.x, state.player.y, "#fff4a8", 70);
   state.attacks.push({ x: state.player.x, y: state.player.y, radius: 310, facing: 1, life: 0.8, maxLife: 0.8, shape: "evolve" });
+  if (firstAscension) {
+    spawnEnemy(true, true);
+    state.bossTimer = Math.min(state.bossTimer, 22);
+  }
   console.log(`ascended: ${ascension.name}`);
 }
 
@@ -1567,8 +1574,9 @@ function update(dt) {
     state.spawnTimer = spawnRate;
   }
   if (state.bossTimer <= 0) {
-    spawnEnemy(true);
-    if (state.elapsed > 220 || p.level >= 18) spawnEnemy(true);
+    const hasAscension = Object.keys(state.ascended).length > 0;
+    spawnEnemy(true, hasAscension && Math.random() < 0.65);
+    if (state.elapsed > 220 || p.level >= 18) spawnEnemy(true, hasAscension && Math.random() < 0.35);
     state.bossTimer = nextBossDelay();
   }
 
@@ -1616,11 +1624,11 @@ function update(dt) {
     if (enemy.hp <= 0) {
       state.enemies.splice(i, 1);
       state.kills += 1;
-      state.gems.push({ x: enemy.x, y: enemy.y, r: enemy.boss ? 8 : 5, value: enemy.xp });
+      state.gems.push({ x: enemy.x, y: enemy.y, r: enemy.eliteBoss ? 11 : enemy.boss ? 8 : 5, value: enemy.xp });
       if (p.dropBonus && Math.random() < p.dropBonus) {
         state.gems.push({ x: enemy.x + rand(-18, 18), y: enemy.y + rand(-18, 18), r: 4, value: 0.65 });
       }
-      addParticles(enemy.x, enemy.y, enemy.boss ? "#b646ff" : "#7cdb86", enemy.boss ? 32 : 12);
+      addParticles(enemy.x, enemy.y, enemy.eliteBoss ? "#ff4fd8" : enemy.boss ? "#b646ff" : "#7cdb86", enemy.eliteBoss ? 48 : enemy.boss ? 32 : 12);
     } else if (dist(enemy, p) > 1800) {
       state.enemies.splice(i, 1);
     }
@@ -2029,8 +2037,8 @@ function drawPlayer(p) {
 
 function drawZombie(enemy) {
   const bob = Math.sin(enemy.step) * (enemy.boss ? 2 : 1.2);
-  const scale = enemy.boss ? 2.65 : 2;
-  const body = enemy.hitFlash > 0 ? "#ffffff" : enemy.boss ? "#7542a8" : "#5f7b45";
+  const scale = enemy.eliteBoss ? 3.25 : enemy.boss ? 2.65 : 2;
+  const body = enemy.hitFlash > 0 ? "#ffffff" : enemy.eliteBoss ? "#9b2f8f" : enemy.boss ? "#7542a8" : "#5f7b45";
   const sprite = enemy.boss ? bossSprite : zombieSprite;
   const typePalette = enemy.type && enemyTypeDefs[enemy.type] ? enemyTypeDefs[enemy.type].palette : {};
   const basePalette = { ...palettes.zombie, ...typePalette };
@@ -2044,14 +2052,22 @@ function drawZombie(enemy) {
   ctx.beginPath();
   ctx.ellipse(x, y + 17 * (scale / 2), 12 * (scale / 2), 4 * (scale / 2), 0, 0, Math.PI * 2);
   ctx.fill();
-  drawSprite(sprite, { ...palette, B: enemy.hitFlash > 0 ? "#ffffff" : body }, x, y, scale, enemy.x > state.player.x);
+  drawSprite(sprite, { ...palette, B: enemy.hitFlash > 0 ? "#ffffff" : body, P: enemy.eliteBoss ? "#ff4fd8" : palette.P, V: enemy.eliteBoss ? "#ffd1f4" : palette.V }, x, y, scale, enemy.x > state.player.x);
+
+  if (enemy.eliteBoss) {
+    ctx.strokeStyle = "rgba(255, 79, 216, 0.58)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y + 2, enemy.w * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   if (enemy.boss || enemy.hp < enemy.maxHp) {
     const w = enemy.w;
     const pct = clamp(enemy.hp / enemy.maxHp, 0, 1);
     ctx.fillStyle = "rgba(0,0,0,0.45)";
     ctx.fillRect(enemy.x - state.camera.x - w / 2, enemy.y - state.camera.y - enemy.h * 0.78, w, 4);
-    ctx.fillStyle = enemy.boss ? "#b646ff" : "#d14343";
+    ctx.fillStyle = enemy.eliteBoss ? "#ff4fd8" : enemy.boss ? "#b646ff" : "#d14343";
     ctx.fillRect(enemy.x - state.camera.x - w / 2, enemy.y - state.camera.y - enemy.h * 0.78, w * pct, 4);
   }
 }
