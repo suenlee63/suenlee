@@ -38,6 +38,8 @@ const weaponDefs = {
   fire: { name: "Fire Bottles", desc: "Drops burning tiles while moving" },
   coil: { name: "Shock Coil", desc: "Pulses electricity around you" },
   tome: { name: "Moon Tome", desc: "Rotating books carve a safe ring" },
+  lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
+  bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
 };
 
 const spriteScale = 2;
@@ -406,23 +408,31 @@ function newGame() {
       fire: 0,
       coil: 0,
       tome: 0,
+      lightning: 0,
+      bat: 0,
     },
     evolved: {
       knives: false,
       fire: false,
       coil: false,
       tome: false,
+      lightning: false,
+      bat: false,
     },
     evolutionReady: {
       knives: false,
       fire: false,
       coil: false,
       tome: false,
+      lightning: false,
+      bat: false,
     },
     weaponTimers: {
       knives: 1.2,
       fire: 0.7,
       coil: 2.4,
+      lightning: 2.0,
+      bat: 1.0,
     },
     kills: 0,
   };
@@ -607,6 +617,58 @@ function pulseCoil() {
   }
 }
 
+function callLightning() {
+  const p = state.player;
+  const level = state.weaponLevels.lightning;
+  const strikes = 1 + Math.floor(level / 3) + (state.evolved.lightning ? 2 : 0);
+  for (let i = 0; i < strikes; i += 1) {
+    const target = nearestEnemy(900);
+    const x = target ? target.x + rand(-18, 18) : p.x + rand(-260, 260);
+    const y = target ? target.y + rand(-18, 18) : p.y + rand(-180, 180);
+    const radius = state.evolved.lightning ? 54 : 34;
+    const damage = (12 + level * 4) * p.might;
+    state.hazards.push({
+      x,
+      y,
+      r: radius,
+      damage,
+      tick: 999,
+      life: 0.32,
+      maxLife: 0.32,
+      kind: "lightning",
+    });
+    for (const enemy of state.enemies) {
+      if (circleHitsActor(x, y, radius, enemy)) {
+        enemy.hp -= damage;
+        enemy.hitFlash = 1;
+        addParticles(enemy.x, enemy.y, "#fff3a6", 8);
+      }
+    }
+  }
+}
+
+function sendSpiritBat() {
+  const p = state.player;
+  const level = state.weaponLevels.bat;
+  const target = nearestEnemy(780);
+  if (!target) return;
+  const count = 1 + Math.floor(level / 4) + (state.evolved.bat ? 1 : 0);
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.atan2(target.y - p.y, target.x - p.x) + (i - (count - 1) / 2) * 0.35;
+    state.projectiles.push({
+      x: p.x + Math.cos(state.elapsed * 4 + i) * 28,
+      y: p.y - 16 + Math.sin(state.elapsed * 4 + i) * 18,
+      vx: Math.cos(angle) * 390,
+      vy: Math.sin(angle) * 390,
+      damage: (7 + level * 2.4) * p.might,
+      life: state.evolved.bat ? 2.1 : 1.55,
+      angle,
+      kind: "bat",
+      pierce: state.evolved.bat ? 2 : 0,
+    });
+  }
+}
+
 function updateWeapons(dt) {
   const levels = state.weaponLevels;
   const timers = state.weaponTimers;
@@ -638,6 +700,22 @@ function updateWeapons(dt) {
   if (levels.tome > 0) {
     updateTome(dt);
   }
+
+  if (levels.lightning > 0) {
+    timers.lightning -= dt;
+    if (timers.lightning <= 0) {
+      callLightning();
+      timers.lightning = Math.max(0.75, 2.15 - levels.lightning * 0.12);
+    }
+  }
+
+  if (levels.bat > 0) {
+    timers.bat -= dt;
+    if (timers.bat <= 0) {
+      sendSpiritBat();
+      timers.bat = Math.max(0.42, 1.45 - levels.bat * 0.08);
+    }
+  }
 }
 
 function updateTome(dt) {
@@ -668,7 +746,8 @@ function updateProjectiles(dt) {
       if (circleHitsActor(projectile.x, projectile.y, 5, enemy)) {
         enemy.hp -= projectile.damage;
         enemy.hitFlash = 1;
-        projectile.life = 0;
+        if (projectile.pierce > 0) projectile.pierce -= 1;
+        else projectile.life = 0;
         addParticles(enemy.x, enemy.y, "#e8edf4", 6);
       }
     }
@@ -775,6 +854,8 @@ function buildUpgradePool() {
       fire: "Evolve: Fire Storm",
       coil: "Evolve: Eternal Coil",
       tome: "Evolve: Moon Barrier",
+      lightning: "Evolve: Thunder Crown",
+      bat: "Evolve: Night Flock",
     };
     choices.push({ name: names[key], text: "Transform this weapon into its evolved form", apply: (game) => evolveWeapon(key, names[key].replace("Evolve: ", "")) });
   }
@@ -801,6 +882,18 @@ function buildUpgradePool() {
     choices.push({ name: "Unlock Moon Tome", text: weaponDefs.tome.desc, apply: (game) => game.weaponLevels.tome = 1 });
   } else {
     choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", apply: (game) => game.weaponLevels.tome = Math.min(8, game.weaponLevels.tome + 1) });
+  }
+
+  if (levels.lightning === 0) {
+    choices.push({ name: "Unlock Lightning Rod", text: weaponDefs.lightning.desc, apply: (game) => game.weaponLevels.lightning = 1 });
+  } else {
+    choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", apply: (game) => game.weaponLevels.lightning = Math.min(8, game.weaponLevels.lightning + 1) });
+  }
+
+  if (levels.bat === 0) {
+    choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, apply: (game) => game.weaponLevels.bat = 1 });
+  } else {
+    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", apply: (game) => game.weaponLevels.bat = Math.min(8, game.weaponLevels.bat + 1) });
   }
 
   choices.push(
@@ -851,6 +944,8 @@ function updateEvolutionReadiness() {
   state.evolutionReady.fire = w.fire >= 6 && p.attackRadius >= 3 && state.elapsed >= 240;
   state.evolutionReady.coil = w.coil >= 6 && p.regen >= 2.8 && state.elapsed >= 300;
   state.evolutionReady.tome = w.tome >= 6 && p.pickup >= 150 && state.elapsed >= 300;
+  state.evolutionReady.lightning = w.lightning >= 6 && p.might >= 1.25 && state.elapsed >= 300;
+  state.evolutionReady.bat = w.bat >= 6 && p.speed >= 270 && state.elapsed >= 300;
 }
 
 function updatePauseButton() {
@@ -1172,6 +1267,21 @@ function drawHazards() {
         ctx.lineTo(x + Math.cos(a + 0.12) * hazard.r, y + Math.sin(a + 0.12) * hazard.r);
         ctx.stroke();
       }
+    } else if (hazard.kind === "lightning") {
+      ctx.strokeStyle = `rgba(255, 243, 166, ${0.9 * alpha})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x - 10, y - 170);
+      ctx.lineTo(x + 8, y - 94);
+      ctx.lineTo(x - 5, y - 92);
+      ctx.lineTo(x + 13, y - 22);
+      ctx.lineTo(x - 2, y - 18);
+      ctx.lineTo(x + 6, y);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255, 243, 166, ${0.28 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, hazard.r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }
@@ -1183,9 +1293,16 @@ function drawProjectiles() {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(projectile.angle);
-    drawPixelRect(-9, -1, 14, 3, "#d8d6ca");
-    drawPixelRect(5, -2, 5, 5, "#f4d891");
-    drawPixelRect(-12, -3, 4, 6, "#8b1e2d");
+    if (projectile.kind === "bat") {
+      drawPixelRect(-10, -2, 7, 4, "#2b1740");
+      drawPixelRect(-3, -5, 8, 10, "#46305d");
+      drawPixelRect(5, -2, 7, 4, "#2b1740");
+      drawPixelRect(-1, -1, 3, 3, "#a37bd1");
+    } else {
+      drawPixelRect(-9, -1, 14, 3, "#d8d6ca");
+      drawPixelRect(5, -2, 5, 5, "#f4d891");
+      drawPixelRect(-12, -3, 4, 6, "#8b1e2d");
+    }
     ctx.restore();
   }
 }
