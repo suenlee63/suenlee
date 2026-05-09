@@ -244,7 +244,8 @@ const alchemistSprite = [
 const characterDefs = {
   hunter: {
     name: "Crimson Hunter",
-    trait: "Balanced melee starter",
+    trait: "Blade specialist. Cleaver and knife upgrades appear more often.",
+    affinity: ["cleaver", "knives", "knives"],
     sprite: playerSprite,
     palette: palettes.player,
     hp: 120,
@@ -257,7 +258,8 @@ const characterDefs = {
   },
   spark: {
     name: "Pikachu",
-    trait: "Fast electric starter",
+    trait: "Electric striker. Lightning Rod and Sun Beam appear more often.",
+    affinity: ["lightning", "lightning", "beam", "beam"],
     sprite: sparkSprite,
     palette: palettes.spark,
     hp: 95,
@@ -270,7 +272,8 @@ const characterDefs = {
   },
   shell: {
     name: "Squirtle",
-    trait: "Tough water defender",
+    trait: "Cold defender. Frost Orb upgrades appear more often.",
+    affinity: ["frost", "frost", "frost"],
     sprite: shellSprite,
     palette: palettes.shell,
     hp: 155,
@@ -283,7 +286,8 @@ const characterDefs = {
   },
   alchemist: {
     name: "Alchemist",
-    trait: "Item drops and fire zones",
+    trait: "Occult mixer. Moon Tome and Poison Vial appear more often.",
+    affinity: ["tome", "tome", "poison", "poison"],
     sprite: alchemistSprite,
     palette: palettes.alchemist,
     hp: 105,
@@ -1035,6 +1039,33 @@ function nextLevelXp(level, currentXp) {
   return Math.floor(currentXp * 1.045 + 8);
 }
 
+function sampleUpgradeChoices(choices, count) {
+  const pool = [...choices];
+  const picked = [];
+  const pickedNames = new Set();
+  while (pool.length && picked.length < count) {
+    const index = Math.floor(Math.random() * pool.length);
+    const choice = pool.splice(index, 1)[0];
+    if (pickedNames.has(choice.name)) continue;
+    picked.push(choice);
+    pickedNames.add(choice.name);
+    for (let i = pool.length - 1; i >= 0; i -= 1) {
+      if (pool[i].name === choice.name) pool.splice(i, 1);
+    }
+  }
+  return picked;
+}
+
+function boostCharacterUpgradeChoices(choices) {
+  const character = characterDefs[state.player.character] || characterDefs.hunter;
+  if (!character.affinity) return;
+  for (const weapon of character.affinity) {
+    const matches = choices.filter((choice) => choice.weapon === weapon);
+    if (!matches.length) continue;
+    choices.push(matches[Math.floor(Math.random() * matches.length)]);
+  }
+}
+
 function buildUpgradePool() {
   const choices = [];
   const levels = state.weaponLevels;
@@ -1053,67 +1084,67 @@ function buildUpgradePool() {
       poison: "Evolve: Plague Flask",
       beam: "Evolve: Solar Lance",
     };
-    choices.push({ name: names[key], text: "Transform this weapon into its evolved form", apply: (game) => evolveWeapon(key, names[key].replace("Evolve: ", "")) });
+    choices.push({ name: names[key], text: "Transform this weapon into its evolved form", weapon: key, apply: (game) => evolveWeapon(key, names[key].replace("Evolve: ", "")) });
   }
 
   if (levels.knives === 0) {
-    choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, apply: (game) => game.weaponLevels.knives = 1 });
+    choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, weapon: "knives", apply: (game) => game.weaponLevels.knives = 1 });
   } else {
-    choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", apply: (game) => game.weaponLevels.knives = Math.min(8, game.weaponLevels.knives + 1) });
+    choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", weapon: "knives", apply: (game) => game.weaponLevels.knives = Math.min(8, game.weaponLevels.knives + 1) });
   }
 
   if (levels.fire === 0) {
-    choices.push({ name: "Unlock Fire Bottles", text: weaponDefs.fire.desc, apply: (game) => game.weaponLevels.fire = 1 });
+    choices.push({ name: "Unlock Fire Bottles", text: weaponDefs.fire.desc, weapon: "fire", apply: (game) => game.weaponLevels.fire = 1 });
   } else {
-    choices.push({ name: "Hotter Fire", text: "Fire lasts longer and burns harder", apply: (game) => game.weaponLevels.fire = Math.min(8, game.weaponLevels.fire + 1) });
+    choices.push({ name: "Hotter Fire", text: "Fire lasts longer and burns harder", weapon: "fire", apply: (game) => game.weaponLevels.fire = Math.min(8, game.weaponLevels.fire + 1) });
   }
 
   if (levels.coil === 0) {
-    choices.push({ name: "Unlock Shock Coil", text: weaponDefs.coil.desc, apply: (game) => game.weaponLevels.coil = 1 });
+    choices.push({ name: "Unlock Shock Coil", text: weaponDefs.coil.desc, weapon: "coil", apply: (game) => game.weaponLevels.coil = 1 });
   } else {
-    choices.push({ name: "Overcharged Coil", text: "Bigger electric pulse damage", apply: (game) => game.weaponLevels.coil = Math.min(8, game.weaponLevels.coil + 1) });
+    choices.push({ name: "Overcharged Coil", text: "Bigger electric pulse damage", weapon: "coil", apply: (game) => game.weaponLevels.coil = Math.min(8, game.weaponLevels.coil + 1) });
   }
 
   if (levels.tome === 0) {
-    choices.push({ name: "Unlock Moon Tome", text: weaponDefs.tome.desc, apply: (game) => game.weaponLevels.tome = 1 });
+    choices.push({ name: "Unlock Moon Tome", text: weaponDefs.tome.desc, weapon: "tome", apply: (game) => game.weaponLevels.tome = 1 });
   } else {
-    choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", apply: (game) => game.weaponLevels.tome = Math.min(8, game.weaponLevels.tome + 1) });
+    choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", weapon: "tome", apply: (game) => game.weaponLevels.tome = Math.min(8, game.weaponLevels.tome + 1) });
   }
 
   if (levels.lightning === 0) {
-    choices.push({ name: "Unlock Lightning Rod", text: weaponDefs.lightning.desc, apply: (game) => game.weaponLevels.lightning = 1 });
+    choices.push({ name: "Unlock Lightning Rod", text: weaponDefs.lightning.desc, weapon: "lightning", apply: (game) => game.weaponLevels.lightning = 1 });
   } else {
-    choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", apply: (game) => game.weaponLevels.lightning = Math.min(8, game.weaponLevels.lightning + 1) });
+    choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", weapon: "lightning", apply: (game) => game.weaponLevels.lightning = Math.min(8, game.weaponLevels.lightning + 1) });
   }
 
   if (levels.bat === 0) {
-    choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, apply: (game) => game.weaponLevels.bat = 1 });
+    choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, weapon: "bat", apply: (game) => game.weaponLevels.bat = 1 });
   } else {
-    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", apply: (game) => game.weaponLevels.bat = Math.min(8, game.weaponLevels.bat + 1) });
+    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", weapon: "bat", apply: (game) => game.weaponLevels.bat = Math.min(8, game.weaponLevels.bat + 1) });
   }
 
   if (levels.frost === 0) {
-    choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, apply: (game) => game.weaponLevels.frost = 1 });
+    choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
   } else {
-    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", apply: (game) => game.weaponLevels.frost = Math.min(8, game.weaponLevels.frost + 1) });
+    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => game.weaponLevels.frost = Math.min(8, game.weaponLevels.frost + 1) });
   }
 
   if (levels.poison === 0) {
-    choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, apply: (game) => game.weaponLevels.poison = 1 });
+    choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, weapon: "poison", apply: (game) => game.weaponLevels.poison = 1 });
   } else {
-    choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", apply: (game) => game.weaponLevels.poison = Math.min(8, game.weaponLevels.poison + 1) });
+    choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", weapon: "poison", apply: (game) => game.weaponLevels.poison = Math.min(8, game.weaponLevels.poison + 1) });
   }
 
   if (levels.beam === 0) {
-    choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, apply: (game) => game.weaponLevels.beam = 1 });
+    choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
   } else {
-    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", apply: (game) => game.weaponLevels.beam = Math.min(8, game.weaponLevels.beam + 1) });
+    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", weapon: "beam", apply: (game) => game.weaponLevels.beam = Math.min(8, game.weaponLevels.beam + 1) });
   }
 
   const cleaverUpgrades = [
-    { name: "Faster Cleave", text: "Grid Cleaver cooldown -16%", apply: (game) => game.player.attackRate *= 0.84 },
-    { name: "Heavy Cleave", text: "Grid Cleaver damage +2", apply: (game) => game.player.damage += 2 },
-    { name: "Wider Cleave", text: "Grid Cleaver radius +1", apply: (game) => game.player.attackRadius += 1 },
+    { name: "Faster Cleave", text: "Grid Cleaver cooldown -16%", weapon: "cleaver", apply: (game) => game.player.attackRate *= 0.84 },
+    { name: "Heavy Cleave", text: "Grid Cleaver damage +2", weapon: "cleaver", apply: (game) => game.player.damage += 2 },
+    { name: "Wider Cleave", text: "Grid Cleaver radius +1", weapon: "cleaver", apply: (game) => game.player.attackRadius += 1 },
   ];
   if (Math.random() < 0.35) {
     choices.push(cleaverUpgrades[Math.floor(Math.random() * cleaverUpgrades.length)]);
@@ -1123,7 +1154,8 @@ function buildUpgradePool() {
     ...passiveUpgrades
   );
 
-  return choices.sort(() => Math.random() - 0.5).slice(0, 3);
+  boostCharacterUpgradeChoices(choices);
+  return sampleUpgradeChoices(choices, 3);
 }
 
 function showLevelUp() {
