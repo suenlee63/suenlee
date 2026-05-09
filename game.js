@@ -249,8 +249,8 @@ const alchemistSprite = [
 const characterDefs = {
   hunter: {
     name: "Crimson Hunter",
-    trait: "Blade specialist. Cleaver and knife skills are stronger and appear more often.",
-    affinity: ["cleaver", "cleaver", "knives", "knives", "knives"],
+    trait: "Blade hunter. Knives and Spirit Bat skills are stronger and appear more often.",
+    affinity: ["knives", "knives", "knives", "bat", "bat"],
     sprite: playerSprite,
     palette: palettes.player,
     hp: 120,
@@ -1385,16 +1385,6 @@ function buildUpgradePool() {
     choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
   } else if (!state.evolved.beam) {
     choices.push({ name: "Focused Beam", text: "Beam width, fire rate, and piercing damage grow with each level", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
-  }
-
-  const cleaverUpgrades = [
-    { name: "Faster Cleave", text: "Grid Cleaver cooldown -20%", weapon: "cleaver", apply: (game) => game.player.attackRate *= 0.8 },
-    { name: "Heavy Cleave", text: "Grid Cleaver damage +3", weapon: "cleaver", apply: (game) => game.player.damage += 3 },
-    { name: "Wider Cleave", text: "Grid Cleaver radius +2", weapon: "cleaver", apply: (game) => game.player.attackRadius += 2 },
-  ];
-  const cleaverChance = state.player.bladeBonus > 1 ? 0.72 : 0.35;
-  if (Math.random() < cleaverChance) {
-    choices.push(cleaverUpgrades[Math.floor(Math.random() * cleaverUpgrades.length)]);
   }
 
   choices.push(
