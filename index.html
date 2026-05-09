@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zombie Grid Survival</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="menu-open">
+  <canvas id="game" aria-label="Zombie Grid Survival game"></canvas>
+
+  <button id="pauseBtn" class="pause-btn" type="button" aria-pressed="false">Pause</button>
+
+  <div class="hud">
+    <div class="hud-row">
+      <div class="stat"><span id="time">00:00</span></div>
+      <div class="stat">Lv <span id="level">1</span></div>
+      <div class="stat">Kill <span id="kills">0</span></div>
+    </div>
+    <div class="bar health"><div id="hpFill"></div></div>
+    <div class="bar xp"><div id="xpFill"></div></div>
+    <div id="weaponList" class="weapon-list"></div>
+  </div>
+
+  <div class="goal-panel">
+    <strong>Run Goals</strong>
+    <div id="goalSurvive">Survive 10:00</div>
+    <div id="goalEvolve">Evolve a weapon</div>
+  </div>
+
+  <div id="levelUp" class="modal hidden">
+    <div class="panel">
+      <h1>Level Up</h1>
+      <div id="choices" class="choices"></div>
+    </div>
+  </div>
+
+  <div id="start" class="modal">
+    <div class="main-menu">
+      <div class="menu-copy">
+        <div class="eyebrow">Retro Auto-Survival</div>
+        <h1>Zombie Grid Survival v19</h1>
+        <p>Build a weapon set, evolve it, and survive the first 10 minutes.</p>
+        <div class="character-select" aria-label="Character select">
+          <button class="character-card selected" type="button" data-character="hunter">
+            <strong>Crimson Hunter</strong>
+            <span>Balanced melee starter</span>
+          </button>
+          <button class="character-card" type="button" data-character="spark">
+            <strong>Pikachu</strong>
+            <span>Fast electric starter</span>
+          </button>
+          <button class="character-card" type="button" data-character="shell">
+            <strong>Squirtle</strong>
+            <span>Tough water defender</span>
+          </button>
+          <button class="character-card" type="button" data-character="alchemist">
+            <strong>Alchemist</strong>
+            <span>Item drops and fire zones</span>
+          </button>
+        </div>
+        <button id="startBtn" class="start-main">Start Run</button>
+      </div>
+
+      <div class="menu-board">
+        <div class="hero-sprite" aria-hidden="true">
+          <div class="pixel-head"></div>
+          <div class="pixel-body"></div>
+          <div class="pixel-blade"></div>
+        </div>
+        <div class="menu-stats">
+          <div><strong>Character</strong><span id="menuCharacterName">Crimson Hunter</span></div>
+          <div><strong>Trait</strong><span id="menuCharacterTrait">Balanced melee starter</span></div>
+          <div><strong>Goal</strong><span>Survive 10:00</span></div>
+          <div><strong>Controls</strong><span>WASD / Arrow Keys</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOver" class="modal hidden">
+    <div class="panel">
+      <h1>Game Over</h1>
+      <p><span id="finalTime">00:00</span> survived - <span id="finalKills">0</span> kills</p>
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+
+  <script src="./game.js?v=21"></script>
+</body>
+</html>
