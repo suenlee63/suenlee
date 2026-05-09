@@ -40,6 +40,9 @@ const weaponDefs = {
   tome: { name: "Moon Tome", desc: "Rotating books carve a safe ring" },
   lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
   bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
+  frost: { name: "Frost Orb", desc: "Bursts cold zones that slow enemies" },
+  poison: { name: "Poison Vial", desc: "Throws toxic pools behind the horde" },
+  beam: { name: "Sun Beam", desc: "Fires a piercing line of light" },
 };
 
 const spriteScale = 2;
@@ -410,6 +413,9 @@ function newGame() {
       tome: 0,
       lightning: 0,
       bat: 0,
+      frost: 0,
+      poison: 0,
+      beam: 0,
     },
     evolved: {
       knives: false,
@@ -418,6 +424,9 @@ function newGame() {
       tome: false,
       lightning: false,
       bat: false,
+      frost: false,
+      poison: false,
+      beam: false,
     },
     evolutionReady: {
       knives: false,
@@ -426,6 +435,9 @@ function newGame() {
       tome: false,
       lightning: false,
       bat: false,
+      frost: false,
+      poison: false,
+      beam: false,
     },
     evolutionStage: {
       knives: 0,
@@ -441,6 +453,9 @@ function newGame() {
       coil: 2.4,
       lightning: 2.0,
       bat: 1.0,
+      frost: 1.8,
+      poison: 1.5,
+      beam: 2.8,
     },
     kills: 0,
   };
@@ -576,6 +591,15 @@ function actorsTouch(a, b) {
   return Math.hypot(dx / combinedX, dy / combinedY) < 1;
 }
 
+function lineHitsActor(x, y, angle, length, width, actor) {
+  const dx = actor.x - x;
+  const dy = actor.y - y;
+  const along = dx * Math.cos(angle) + dy * Math.sin(angle);
+  if (along < -actorRadius(actor) || along > length + actorRadius(actor)) return false;
+  const side = Math.abs(-Math.sin(angle) * dx + Math.cos(angle) * dy);
+  return side <= width + actorRadius(actor);
+}
+
 function fireKnife() {
   const level = state.weaponLevels.knives;
   const target = nearestEnemy(820);
@@ -692,6 +716,74 @@ function sendSpiritBat() {
   }
 }
 
+function burstFrost() {
+  const p = state.player;
+  const level = state.weaponLevels.frost;
+  const target = nearestEnemy(760);
+  const x = target ? target.x : p.x + rand(-160, 160);
+  const y = target ? target.y : p.y + rand(-120, 120);
+  state.hazards.push({
+    x,
+    y,
+    r: (state.evolved.frost ? 72 : 46) + level * 4,
+    damage: (2.2 + level * 0.8) * p.might,
+    tick: 0,
+    life: state.evolved.frost ? 3.8 : 2.4,
+    maxLife: state.evolved.frost ? 3.8 : 2.4,
+    slow: state.evolved.frost ? 0.42 : 0.62,
+    kind: "frost",
+  });
+}
+
+function throwPoison() {
+  const p = state.player;
+  const level = state.weaponLevels.poison;
+  const target = nearestEnemy(680);
+  const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : Math.random() * Math.PI * 2;
+  const distance = target ? Math.min(220, dist(target, p)) : 150;
+  state.hazards.push({
+    x: p.x + Math.cos(angle) * distance,
+    y: p.y + Math.sin(angle) * distance,
+    r: (state.evolved.poison ? 58 : 36) + level * 3,
+    damage: (2.7 + level * 1.0) * p.might,
+    tick: 0,
+    life: (state.evolved.poison ? 5.0 : 3.2) + level * 0.18,
+    maxLife: (state.evolved.poison ? 5.0 : 3.2) + level * 0.18,
+    kind: "poison",
+  });
+}
+
+function fireSunBeam() {
+  const p = state.player;
+  const level = state.weaponLevels.beam;
+  const target = nearestEnemy(900);
+  if (!target) return;
+  const angle = Math.atan2(target.y - p.y, target.x - p.x);
+  const length = state.evolved.beam ? 620 : 430;
+  const width = (state.evolved.beam ? 18 : 11) + level;
+  const damage = (14 + level * 4) * p.might;
+  state.hazards.push({
+    x: p.x,
+    y: p.y,
+    angle,
+    length,
+    width,
+    damage,
+    tick: 999,
+    life: 0.2,
+    maxLife: 0.2,
+    kind: "beam",
+  });
+
+  for (const enemy of state.enemies) {
+    if (lineHitsActor(p.x, p.y, angle, length, width, enemy)) {
+      enemy.hp -= damage;
+      enemy.hitFlash = 1;
+      addParticles(enemy.x, enemy.y, "#fff0a8", 6);
+    }
+  }
+}
+
 function updateWeapons(dt) {
   const levels = state.weaponLevels;
   const timers = state.weaponTimers;
@@ -739,6 +831,30 @@ function updateWeapons(dt) {
       timers.bat = Math.max(0.42, 1.45 - levels.bat * 0.08);
     }
   }
+
+  if (levels.frost > 0) {
+    timers.frost -= dt;
+    if (timers.frost <= 0) {
+      burstFrost();
+      timers.frost = Math.max(0.72, 1.9 - levels.frost * 0.1);
+    }
+  }
+
+  if (levels.poison > 0) {
+    timers.poison -= dt;
+    if (timers.poison <= 0) {
+      throwPoison();
+      timers.poison = Math.max(0.55, 1.6 - levels.poison * 0.08);
+    }
+  }
+
+  if (levels.beam > 0) {
+    timers.beam -= dt;
+    if (timers.beam <= 0) {
+      fireSunBeam();
+      timers.beam = Math.max(1.15, 2.85 - levels.beam * 0.12);
+    }
+  }
 }
 
 function updateTome(dt) {
@@ -784,13 +900,15 @@ function updateHazards(dt) {
   for (const hazard of state.hazards) {
     hazard.life -= dt;
     hazard.tick -= dt;
-    if (hazard.kind === "fire" && hazard.tick <= 0) {
+    if ((hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost") && hazard.tick <= 0) {
       hazard.tick = 0.32;
       for (const enemy of state.enemies) {
         if (circleHitsActor(hazard.x, hazard.y, hazard.r, enemy)) {
           enemy.hp -= hazard.damage;
           enemy.hitFlash = 1;
-          addParticles(enemy.x, enemy.y, "#ff9a3c", 3);
+          if (hazard.kind === "frost") enemy.chilled = Math.max(enemy.chilled || 0, 0.7);
+          const color = hazard.kind === "fire" ? "#ff9a3c" : hazard.kind === "poison" ? "#9be15d" : "#9be8ff";
+          addParticles(enemy.x, enemy.y, color, 3);
         }
       }
     }
@@ -885,6 +1003,9 @@ function buildUpgradePool() {
       tome: "Evolve: Moon Barrier",
       lightning: "Evolve: Thunder Crown",
       bat: "Evolve: Night Flock",
+      frost: "Evolve: Winter Star",
+      poison: "Evolve: Plague Flask",
+      beam: "Evolve: Solar Lance",
     };
     choices.push({ name: names[key], text: "Transform this weapon into its evolved form", apply: (game) => evolveWeapon(key, names[key].replace("Evolve: ", "")) });
   }
@@ -923,6 +1044,24 @@ function buildUpgradePool() {
     choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, apply: (game) => game.weaponLevels.bat = 1 });
   } else {
     choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", apply: (game) => game.weaponLevels.bat = Math.min(8, game.weaponLevels.bat + 1) });
+  }
+
+  if (levels.frost === 0) {
+    choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, apply: (game) => game.weaponLevels.frost = 1 });
+  } else {
+    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", apply: (game) => game.weaponLevels.frost = Math.min(8, game.weaponLevels.frost + 1) });
+  }
+
+  if (levels.poison === 0) {
+    choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, apply: (game) => game.weaponLevels.poison = 1 });
+  } else {
+    choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", apply: (game) => game.weaponLevels.poison = Math.min(8, game.weaponLevels.poison + 1) });
+  }
+
+  if (levels.beam === 0) {
+    choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, apply: (game) => game.weaponLevels.beam = 1 });
+  } else {
+    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", apply: (game) => game.weaponLevels.beam = Math.min(8, game.weaponLevels.beam + 1) });
   }
 
   choices.push(
@@ -998,6 +1137,21 @@ function updateEvolutionReadiness() {
     w.bat >= 3,
     w.bat >= 6 && p.speed >= 250,
     w.bat >= 8 && p.speed >= 285 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.frost = evolutionStage([
+    w.frost >= 3,
+    w.frost >= 6 && p.regen >= 2,
+    w.frost >= 8 && p.regen >= 3 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.poison = evolutionStage([
+    w.poison >= 3,
+    w.poison >= 6 && p.pickup >= 125,
+    w.poison >= 8 && p.pickup >= 155 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.beam = evolutionStage([
+    w.beam >= 3,
+    w.beam >= 6 && p.might >= 1.15,
+    w.beam >= 8 && p.might >= 1.3 && state.elapsed >= 420,
   ]);
 
   for (const key of Object.keys(state.evolutionReady)) {
@@ -1097,8 +1251,10 @@ function update(dt) {
     const a = Math.atan2(p.y - enemy.y, p.x - enemy.x);
     const enemyDistance = dist(enemy, p);
     const moveFactor = enemy.type === "spitter" && enemyDistance < 260 ? -0.35 : 1;
-    enemy.x += Math.cos(a) * enemy.speed * moveFactor * dt;
-    enemy.y += Math.sin(a) * enemy.speed * moveFactor * dt;
+    const slowFactor = enemy.chilled > 0 ? 0.55 : 1;
+    enemy.chilled = Math.max(0, (enemy.chilled || 0) - dt);
+    enemy.x += Math.cos(a) * enemy.speed * moveFactor * slowFactor * dt;
+    enemy.y += Math.sin(a) * enemy.speed * moveFactor * slowFactor * dt;
     enemy.step += dt * enemy.speed * 0.06;
     enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 6);
     enemy.shootTimer -= dt;
@@ -1322,16 +1478,21 @@ function drawHazards() {
     const y = hazard.y - state.camera.y;
     const alpha = clamp(hazard.life / hazard.maxLife, 0, 1);
 
-    if (hazard.kind === "fire") {
+    if (hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost") {
+      const colors = {
+        fire: ["255, 214, 91", "255, 116, 48", "95, 30, 19"],
+        poison: ["185, 255, 103", "99, 190, 86", "31, 84, 45"],
+        frost: ["180, 245, 255", "88, 176, 230", "22, 72, 94"],
+      }[hazard.kind];
       const grd = ctx.createRadialGradient(x, y, 4, x, y, hazard.r);
-      grd.addColorStop(0, `rgba(255, 214, 91, ${0.38 * alpha})`);
-      grd.addColorStop(0.45, `rgba(255, 116, 48, ${0.28 * alpha})`);
-      grd.addColorStop(1, "rgba(95, 30, 19, 0)");
+      grd.addColorStop(0, `rgba(${colors[0]}, ${0.38 * alpha})`);
+      grd.addColorStop(0.45, `rgba(${colors[1]}, ${0.28 * alpha})`);
+      grd.addColorStop(1, `rgba(${colors[2]}, 0)`);
       ctx.fillStyle = grd;
       ctx.beginPath();
       ctx.arc(x, y, hazard.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = `rgba(255, 145, 50, ${0.45 * alpha})`;
+      ctx.fillStyle = `rgba(${colors[0]}, ${0.45 * alpha})`;
       ctx.fillRect(x - 18, y - 5, 9, 13);
       ctx.fillRect(x + 5, y - 12, 8, 18);
       ctx.fillRect(x + 17, y + 3, 7, 11);
@@ -1365,6 +1526,15 @@ function drawHazards() {
       ctx.beginPath();
       ctx.arc(x, y, hazard.r, 0, Math.PI * 2);
       ctx.fill();
+    } else if (hazard.kind === "beam") {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(hazard.angle);
+      ctx.fillStyle = `rgba(255, 240, 168, ${0.42 * alpha})`;
+      ctx.fillRect(0, -hazard.width, hazard.length, hazard.width * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.72 * alpha})`;
+      ctx.fillRect(0, -Math.max(2, hazard.width * 0.25), hazard.length, Math.max(4, hazard.width * 0.5));
+      ctx.restore();
     }
   }
 }
