@@ -427,6 +427,14 @@ function newGame() {
       lightning: false,
       bat: false,
     },
+    evolutionStage: {
+      knives: 0,
+      fire: 0,
+      coil: 0,
+      tome: 0,
+      lightning: 0,
+      bat: 0,
+    },
     weaponTimers: {
       knives: 1.2,
       fire: 0.7,
@@ -946,12 +954,49 @@ function evolveWeapon(key, label) {
 function updateEvolutionReadiness() {
   const p = state.player;
   const w = state.weaponLevels;
-  state.evolutionReady.knives = w.knives >= 6 && p.attackRate <= 0.58 && state.elapsed >= 240;
-  state.evolutionReady.fire = w.fire >= 6 && p.attackRadius >= 3 && state.elapsed >= 240;
-  state.evolutionReady.coil = w.coil >= 6 && p.regen >= 2.8 && state.elapsed >= 300;
-  state.evolutionReady.tome = w.tome >= 6 && p.pickup >= 150 && state.elapsed >= 300;
-  state.evolutionReady.lightning = w.lightning >= 6 && p.might >= 1.25 && state.elapsed >= 300;
-  state.evolutionReady.bat = w.bat >= 6 && p.speed >= 270 && state.elapsed >= 300;
+  state.evolutionStage.knives = evolutionStage([
+    w.knives >= 3,
+    w.knives >= 6 && p.attackRate <= 0.68,
+    w.knives >= 8 && p.attackRate <= 0.58 && state.elapsed >= 360,
+  ]);
+  state.evolutionStage.fire = evolutionStage([
+    w.fire >= 3,
+    w.fire >= 6 && p.attackRadius >= 2,
+    w.fire >= 8 && p.attackRadius >= 3 && state.elapsed >= 360,
+  ]);
+  state.evolutionStage.coil = evolutionStage([
+    w.coil >= 3,
+    w.coil >= 6 && p.regen >= 2,
+    w.coil >= 8 && p.regen >= 2.8 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.tome = evolutionStage([
+    w.tome >= 3,
+    w.tome >= 6 && p.pickup >= 125,
+    w.tome >= 8 && p.pickup >= 155 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.lightning = evolutionStage([
+    w.lightning >= 3,
+    w.lightning >= 6 && p.might >= 1.12,
+    w.lightning >= 8 && p.might >= 1.25 && state.elapsed >= 420,
+  ]);
+  state.evolutionStage.bat = evolutionStage([
+    w.bat >= 3,
+    w.bat >= 6 && p.speed >= 250,
+    w.bat >= 8 && p.speed >= 285 && state.elapsed >= 420,
+  ]);
+
+  for (const key of Object.keys(state.evolutionReady)) {
+    state.evolutionReady[key] = state.evolutionStage[key] >= 3;
+  }
+}
+
+function evolutionStage(checks) {
+  let stage = 0;
+  for (const passed of checks) {
+    if (!passed) break;
+    stage += 1;
+  }
+  return stage;
 }
 
 function updatePauseButton() {
@@ -1131,7 +1176,9 @@ function updateUi() {
     const chip = document.createElement("div");
     chip.className = "weapon-chip";
     const marker = state.evolved[key] ? "*" : state.evolutionReady[key] ? "!" : "";
-    chip.textContent = `${marker}${weaponDefs[key].name} ${level}`;
+    const stage = state.evolutionStage[key] || 0;
+    const evoText = key === "cleaver" ? "" : state.evolved[key] ? " Evo" : ` E${stage}/3`;
+    chip.textContent = `${marker}${weaponDefs[key].name} ${level}${evoText}`;
     ui.weaponList.append(chip);
   }
   const regen = document.createElement("div");
@@ -1144,7 +1191,8 @@ function updateUi() {
   const evolvedCount = Object.values(state.evolved).filter(Boolean).length;
   ui.goalEvolve.classList.toggle("goal-done", evolvedCount > 0);
   const readyCount = Object.values(state.evolutionReady).filter(Boolean).length;
-  ui.goalEvolve.textContent = evolvedCount > 0 ? `Done: ${evolvedCount} evolution` : readyCount > 0 ? "Evolution ready on level up" : "Evolve a weapon";
+  const bestStage = Math.max(0, ...Object.values(state.evolutionStage));
+  ui.goalEvolve.textContent = evolvedCount > 0 ? `Done: ${evolvedCount} evolution` : readyCount > 0 ? "Evolution ready on level up" : `Evolve a weapon (${bestStage}/3)`;
 }
 
 function endGame() {
