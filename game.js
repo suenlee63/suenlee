@@ -286,8 +286,8 @@ const characterDefs = {
   },
   alchemist: {
     name: "Alchemist",
-    trait: "Occult mixer. Moon Tome and Poison Vial appear more often.",
-    affinity: ["tome", "tome", "poison", "poison"],
+    trait: "Occult mixer. Moon Tome, Poison Vial, and XP gains appear more often.",
+    affinity: ["tome", "tome", "poison", "poison", "xp", "xp"],
     sprite: alchemistSprite,
     palette: palettes.alchemist,
     hp: 105,
@@ -356,7 +356,7 @@ const passiveUpgrades = [
   { name: "First Aid Kit", text: "Health regen +0.8 per second", apply: (game) => game.player.regen += 0.8 },
   { name: "Silver Charm", text: "All weapon damage +10%", apply: (game) => game.player.might *= 1.1 },
   { name: "Magnet Pack", text: "Pickup range +35%", apply: (game) => game.player.pickup *= 1.35 },
-  { name: "Learning Gem", text: "Experience gained +25%", apply: (game) => game.player.xpGain *= 1.25 },
+  { name: "Learning Gem", text: "Experience gained +25%", weapon: "xp", apply: (game) => game.player.xpGain *= 1.25 },
 ];
 
 function resize() {
