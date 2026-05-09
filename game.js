@@ -1110,10 +1110,16 @@ function buildUpgradePool() {
     choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", apply: (game) => game.weaponLevels.beam = Math.min(8, game.weaponLevels.beam + 1) });
   }
 
-  choices.push(
+  const cleaverUpgrades = [
     { name: "Faster Cleave", text: "Grid Cleaver cooldown -16%", apply: (game) => game.player.attackRate *= 0.84 },
     { name: "Heavy Cleave", text: "Grid Cleaver damage +2", apply: (game) => game.player.damage += 2 },
     { name: "Wider Cleave", text: "Grid Cleaver radius +1", apply: (game) => game.player.attackRadius += 1 },
+  ];
+  if (Math.random() < 0.35) {
+    choices.push(cleaverUpgrades[Math.floor(Math.random() * cleaverUpgrades.length)]);
+  }
+
+  choices.push(
     ...passiveUpgrades
   );
 
