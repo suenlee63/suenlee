@@ -1120,49 +1120,49 @@ function updateEvolutionReadiness() {
   const p = state.player;
   const w = state.weaponLevels;
   state.evolutionStage.knives = evolutionStage([
-    w.knives >= 3,
-    w.knives >= 6 && p.attackRate <= 0.68,
-    w.knives >= 7 && p.attackRate <= 0.62 && state.elapsed >= 300,
+    w.knives >= 2,
+    w.knives >= 4 && p.attackRate <= 0.72,
+    w.knives >= 6 && p.attackRate <= 0.68 && state.elapsed >= 240,
   ]);
   state.evolutionStage.fire = evolutionStage([
-    w.fire >= 3,
-    w.fire >= 6 && p.attackRadius >= 2,
-    w.fire >= 7 && p.attackRadius >= 3 && state.elapsed >= 300,
+    w.fire >= 2,
+    w.fire >= 4 && p.attackRadius >= 2,
+    w.fire >= 6 && p.attackRadius >= 2 && state.elapsed >= 240,
   ]);
   state.evolutionStage.coil = evolutionStage([
-    w.coil >= 3,
-    w.coil >= 6 && p.regen >= 2,
-    w.coil >= 7 && p.regen >= 2.4 && state.elapsed >= 360,
+    w.coil >= 2,
+    w.coil >= 4 && p.regen >= 1.8,
+    w.coil >= 6 && p.regen >= 2.0 && state.elapsed >= 270,
   ]);
   state.evolutionStage.tome = evolutionStage([
-    w.tome >= 3,
-    w.tome >= 6 && p.pickup >= 125,
-    w.tome >= 7 && p.pickup >= 140 && state.elapsed >= 360,
+    w.tome >= 2,
+    w.tome >= 4 && p.pickup >= 115,
+    w.tome >= 6 && p.pickup >= 125 && state.elapsed >= 270,
   ]);
   state.evolutionStage.lightning = evolutionStage([
-    w.lightning >= 3,
-    w.lightning >= 6 && p.might >= 1.12,
-    w.lightning >= 7 && p.might >= 1.18 && state.elapsed >= 360,
+    w.lightning >= 2,
+    w.lightning >= 4 && p.might >= 1.08,
+    w.lightning >= 6 && p.might >= 1.12 && state.elapsed >= 270,
   ]);
   state.evolutionStage.bat = evolutionStage([
-    w.bat >= 3,
-    w.bat >= 6 && p.speed >= 250,
-    w.bat >= 7 && p.speed >= 270 && state.elapsed >= 360,
+    w.bat >= 2,
+    w.bat >= 4 && p.speed >= 245,
+    w.bat >= 6 && p.speed >= 255 && state.elapsed >= 270,
   ]);
   state.evolutionStage.frost = evolutionStage([
-    w.frost >= 3,
-    w.frost >= 6 && p.regen >= 2,
-    w.frost >= 7 && p.regen >= 2.5 && state.elapsed >= 360,
+    w.frost >= 2,
+    w.frost >= 4 && p.regen >= 1.8,
+    w.frost >= 6 && p.regen >= 2.1 && state.elapsed >= 270,
   ]);
   state.evolutionStage.poison = evolutionStage([
-    w.poison >= 3,
-    w.poison >= 6 && p.pickup >= 125,
-    w.poison >= 7 && p.pickup >= 140 && state.elapsed >= 360,
+    w.poison >= 2,
+    w.poison >= 4 && p.pickup >= 115,
+    w.poison >= 6 && p.pickup >= 125 && state.elapsed >= 270,
   ]);
   state.evolutionStage.beam = evolutionStage([
-    w.beam >= 3,
-    w.beam >= 6 && p.might >= 1.15,
-    w.beam >= 7 && p.might >= 1.22 && state.elapsed >= 360,
+    w.beam >= 2,
+    w.beam >= 4 && p.might >= 1.1,
+    w.beam >= 6 && p.might >= 1.16 && state.elapsed >= 270,
   ]);
 
   for (const key of Object.keys(state.evolutionReady)) {
