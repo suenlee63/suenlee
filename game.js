@@ -405,6 +405,7 @@ function newGame() {
     gems: [],
     particles: [],
     uiTimer: 0,
+    flash: 0,
     weaponLevels: {
       cleaver: 1,
       knives: 0,
@@ -533,9 +534,10 @@ function spawnEnemy(boss = false) {
 
 function performAreaAttack() {
   const p = state.player;
-  const radius = 44 + p.attackRadius * 22;
-  const arc = 1.15;
-  state.attacks.push({ x: p.x, y: p.y, radius, facing: p.facing, arc, shape: "arc", life: 0.22, maxLife: 0.22 });
+  const evolved = state.evolved.cleaver;
+  const radius = (44 + p.attackRadius * 22) * (evolved ? 1.2 : 1);
+  const arc = evolved ? 1.55 : 1.15;
+  state.attacks.push({ x: p.x, y: p.y, radius, facing: p.facing, arc, evolved, shape: "arc", life: evolved ? 0.32 : 0.22, maxLife: evolved ? 0.32 : 0.22 });
 
   for (const enemy of state.enemies) {
     if (arcHitsActor(p.x, p.y, p.facing, radius, arc, enemy)) {
@@ -667,12 +669,13 @@ function pulseCoil() {
 function callLightning() {
   const p = state.player;
   const level = state.weaponLevels.lightning;
-  const strikes = 1 + Math.floor(level / 3) + (state.evolved.lightning ? 2 : 0);
+  const evolved = state.evolved.lightning;
+  const strikes = 1 + Math.floor(level / 3) + (evolved ? 3 : 0);
   for (let i = 0; i < strikes; i += 1) {
     const target = nearestEnemy(900);
     const x = target ? target.x + rand(-18, 18) : p.x + rand(-260, 260);
     const y = target ? target.y + rand(-18, 18) : p.y + rand(-180, 180);
-    const radius = state.evolved.lightning ? 54 : 34;
+    const radius = evolved ? 68 : 34;
     const damage = (12 + level * 4) * p.might;
     state.hazards.push({
       x,
@@ -680,8 +683,9 @@ function callLightning() {
       r: radius,
       damage,
       tick: 999,
-      life: 0.32,
-      maxLife: 0.32,
+      life: evolved ? 0.46 : 0.32,
+      maxLife: evolved ? 0.46 : 0.32,
+      evolved,
       kind: "lightning",
     });
     for (const enemy of state.enemies) {
@@ -699,19 +703,21 @@ function sendSpiritBat() {
   const level = state.weaponLevels.bat;
   const target = nearestEnemy(780);
   if (!target) return;
-  const count = 1 + Math.floor(level / 4) + (state.evolved.bat ? 1 : 0);
+  const evolved = state.evolved.bat;
+  const count = 1 + Math.floor(level / 4) + (evolved ? 3 : 0);
   for (let i = 0; i < count; i += 1) {
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + (i - (count - 1) / 2) * 0.35;
     state.projectiles.push({
       x: p.x + Math.cos(state.elapsed * 4 + i) * 28,
       y: p.y - 16 + Math.sin(state.elapsed * 4 + i) * 18,
-      vx: Math.cos(angle) * 390,
-      vy: Math.sin(angle) * 390,
+      vx: Math.cos(angle) * (evolved ? 470 : 390),
+      vy: Math.sin(angle) * (evolved ? 470 : 390),
       damage: (7 + level * 2.4) * p.might,
-      life: state.evolved.bat ? 2.1 : 1.55,
+      life: evolved ? 2.4 : 1.55,
       angle,
       kind: "bat",
-      pierce: state.evolved.bat ? 2 : 0,
+      evolved,
+      pierce: evolved ? 4 : 0,
     });
   }
 }
@@ -725,11 +731,12 @@ function burstFrost() {
   state.hazards.push({
     x,
     y,
-    r: (state.evolved.frost ? 72 : 46) + level * 4,
+    r: (state.evolved.frost ? 92 : 46) + level * 4,
     damage: (2.2 + level * 0.8) * p.might,
     tick: 0,
-    life: state.evolved.frost ? 3.8 : 2.4,
-    maxLife: state.evolved.frost ? 3.8 : 2.4,
+    life: state.evolved.frost ? 4.6 : 2.4,
+    maxLife: state.evolved.frost ? 4.6 : 2.4,
+    evolved: state.evolved.frost,
     slow: state.evolved.frost ? 0.42 : 0.62,
     kind: "frost",
   });
@@ -744,12 +751,13 @@ function throwPoison() {
   state.hazards.push({
     x: p.x + Math.cos(angle) * distance,
     y: p.y + Math.sin(angle) * distance,
-    r: (state.evolved.poison ? 58 : 36) + level * 3,
+    r: (state.evolved.poison ? 78 : 36) + level * 3,
     damage: (2.7 + level * 1.0) * p.might,
     tick: 0,
     life: (state.evolved.poison ? 5.0 : 3.2) + level * 0.18,
     maxLife: (state.evolved.poison ? 5.0 : 3.2) + level * 0.18,
     kind: "poison",
+    evolved: state.evolved.poison,
   });
 }
 
@@ -759,8 +767,8 @@ function fireSunBeam() {
   const target = nearestEnemy(900);
   if (!target) return;
   const angle = Math.atan2(target.y - p.y, target.x - p.x);
-  const length = state.evolved.beam ? 620 : 430;
-  const width = (state.evolved.beam ? 18 : 11) + level;
+  const length = state.evolved.beam ? 760 : 430;
+  const width = (state.evolved.beam ? 28 : 11) + level;
   const damage = (14 + level * 4) * p.might;
   state.hazards.push({
     x: p.x,
@@ -773,6 +781,7 @@ function fireSunBeam() {
     life: 0.2,
     maxLife: 0.2,
     kind: "beam",
+    evolved: state.evolved.beam,
   });
 
   for (const enemy of state.enemies) {
@@ -1100,8 +1109,10 @@ function showLevelUp() {
 function evolveWeapon(key, label) {
   if (state.evolved[key]) return;
   state.evolved[key] = true;
+  state.flash = 0.55;
+  state.shake = 1.2;
   addParticles(state.player.x, state.player.y, "#ffe2a0", 40);
-  state.attacks.push({ x: state.player.x, y: state.player.y, radius: 150, facing: 1, life: 0.45, maxLife: 0.45 });
+  state.attacks.push({ x: state.player.x, y: state.player.y, radius: 230, facing: 1, life: 0.65, maxLife: 0.65, shape: "evolve" });
   console.log(`evolved: ${label}`);
 }
 
@@ -1201,6 +1212,7 @@ function update(dt) {
   state.spawnTimer -= dt;
   state.bossTimer -= dt;
   state.uiTimer -= dt;
+  state.flash = Math.max(0, state.flash - dt);
   state.shake = Math.max(0, state.shake - dt * 12);
   p.attackCooldown -= dt;
   p.invulnerable = Math.max(0, p.invulnerable - dt);
@@ -1443,12 +1455,13 @@ function drawAttacks() {
     const y = attack.y - state.camera.y;
 
     if (attack.shape !== "arc") {
-      ctx.strokeStyle = `rgba(255, 226, 144, ${0.48 * alpha})`;
-      ctx.lineWidth = 4;
+      const evolved = attack.shape === "evolve";
+      ctx.strokeStyle = evolved ? `rgba(255, 255, 255, ${0.7 * alpha})` : `rgba(255, 226, 144, ${0.48 * alpha})`;
+      ctx.lineWidth = evolved ? 8 : 4;
       ctx.beginPath();
       ctx.arc(x, y, attack.radius * (1.04 - alpha * 0.08), 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = `rgba(224, 179, 95, ${0.1 * alpha})`;
+      ctx.fillStyle = evolved ? `rgba(255, 226, 144, ${0.18 * alpha})` : `rgba(224, 179, 95, ${0.1 * alpha})`;
       ctx.beginPath();
       ctx.arc(x, y, attack.radius, 0, Math.PI * 2);
       ctx.fill();
@@ -1458,13 +1471,13 @@ function drawAttacks() {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(attack.facing, 1);
-    ctx.strokeStyle = `rgba(255, 226, 144, ${0.55 * alpha})`;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = attack.evolved ? `rgba(255, 255, 255, ${0.8 * alpha})` : `rgba(255, 226, 144, ${0.55 * alpha})`;
+    ctx.lineWidth = attack.evolved ? 5 : 3;
     ctx.beginPath();
     ctx.arc(0, 0, attack.radius * (1.04 - alpha * 0.1), -attack.arc, attack.arc);
     ctx.stroke();
-    ctx.strokeStyle = `rgba(224, 179, 95, ${0.28 * alpha})`;
-    ctx.lineWidth = 9;
+    ctx.strokeStyle = attack.evolved ? `rgba(255, 80, 120, ${0.35 * alpha})` : `rgba(224, 179, 95, ${0.28 * alpha})`;
+    ctx.lineWidth = attack.evolved ? 14 : 9;
     ctx.beginPath();
     ctx.arc(0, 0, attack.radius * 0.78, -attack.arc * 0.87, attack.arc * 0.87);
     ctx.stroke();
@@ -1496,6 +1509,16 @@ function drawHazards() {
       ctx.fillRect(x - 18, y - 5, 9, 13);
       ctx.fillRect(x + 5, y - 12, 8, 18);
       ctx.fillRect(x + 17, y + 3, 7, 11);
+      if (hazard.evolved) {
+        ctx.strokeStyle = `rgba(${colors[0]}, ${0.65 * alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, hazard.r * 0.72, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, hazard.r * 1.02, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     } else if (hazard.kind === "coil") {
       ctx.strokeStyle = `rgba(139, 232, 255, ${0.78 * alpha})`;
       ctx.lineWidth = 3;
@@ -1512,8 +1535,8 @@ function drawHazards() {
         ctx.stroke();
       }
     } else if (hazard.kind === "lightning") {
-      ctx.strokeStyle = `rgba(255, 243, 166, ${0.9 * alpha})`;
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = hazard.evolved ? `rgba(255, 255, 255, ${alpha})` : `rgba(255, 243, 166, ${0.9 * alpha})`;
+      ctx.lineWidth = hazard.evolved ? 7 : 4;
       ctx.beginPath();
       ctx.moveTo(x - 10, y - 170);
       ctx.lineTo(x + 8, y - 94);
@@ -1526,14 +1549,26 @@ function drawHazards() {
       ctx.beginPath();
       ctx.arc(x, y, hazard.r, 0, Math.PI * 2);
       ctx.fill();
+      if (hazard.evolved) {
+        ctx.strokeStyle = `rgba(255, 217, 64, ${0.7 * alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, hazard.r * 1.2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     } else if (hazard.kind === "beam") {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(hazard.angle);
-      ctx.fillStyle = `rgba(255, 240, 168, ${0.42 * alpha})`;
+      ctx.fillStyle = hazard.evolved ? `rgba(255, 240, 168, ${0.58 * alpha})` : `rgba(255, 240, 168, ${0.42 * alpha})`;
       ctx.fillRect(0, -hazard.width, hazard.length, hazard.width * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.72 * alpha})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${hazard.evolved ? 0.95 * alpha : 0.72 * alpha})`;
       ctx.fillRect(0, -Math.max(2, hazard.width * 0.25), hazard.length, Math.max(4, hazard.width * 0.5));
+      if (hazard.evolved) {
+        ctx.fillStyle = `rgba(255, 92, 92, ${0.28 * alpha})`;
+        ctx.fillRect(0, -hazard.width * 1.6, hazard.length, hazard.width * 0.45);
+        ctx.fillRect(0, hazard.width * 1.15, hazard.length, hazard.width * 0.45);
+      }
       ctx.restore();
     }
   }
@@ -1547,10 +1582,17 @@ function drawProjectiles() {
     ctx.translate(x, y);
     ctx.rotate(projectile.angle);
     if (projectile.kind === "bat") {
-      drawPixelRect(-10, -2, 7, 4, "#2b1740");
-      drawPixelRect(-3, -5, 8, 10, "#46305d");
-      drawPixelRect(5, -2, 7, 4, "#2b1740");
-      drawPixelRect(-1, -1, 3, 3, "#a37bd1");
+      if (projectile.evolved) {
+        drawPixelRect(-16, -3, 11, 6, "#12071f");
+        drawPixelRect(-5, -7, 12, 14, "#6e36a8");
+        drawPixelRect(7, -3, 11, 6, "#12071f");
+        drawPixelRect(-2, -2, 5, 5, "#e0b3ff");
+      } else {
+        drawPixelRect(-10, -2, 7, 4, "#2b1740");
+        drawPixelRect(-3, -5, 8, 10, "#46305d");
+        drawPixelRect(5, -2, 7, 4, "#2b1740");
+        drawPixelRect(-1, -1, 3, 3, "#a37bd1");
+      }
     } else {
       drawPixelRect(-9, -1, 14, 3, "#d8d6ca");
       drawPixelRect(5, -2, 5, 5, "#f4d891");
@@ -1577,17 +1619,22 @@ function drawTomeOrbit() {
     ctx.translate(x, y);
     ctx.rotate(angle + Math.PI / 2);
     drawPixelRect(-5, -7, 10, 14, "#d7d0bd");
-    drawPixelRect(-4, -6, 4, 12, "#9a6f4a");
-    drawPixelRect(1, -6, 4, 12, "#f0c879");
+    drawPixelRect(-4, -6, 4, 12, state.evolved.tome ? "#fff3a6" : "#9a6f4a");
+    drawPixelRect(1, -6, 4, 12, state.evolved.tome ? "#8be8ff" : "#f0c879");
     drawPixelRect(-1, -7, 2, 14, "#251c28");
     ctx.restore();
   }
 
   if (state.evolved.tome) {
-    ctx.strokeStyle = "rgba(215, 208, 189, 0.28)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 243, 166, 0.5)";
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.ellipse(cx, cy, radius, radius * 0.58, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(139, 232, 255, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, radius * 0.72, radius * 0.42, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 }
@@ -1701,6 +1748,11 @@ function draw() {
   }
 
   ctx.restore();
+
+  if (state.flash > 0) {
+    ctx.fillStyle = `rgba(255, 238, 184, ${Math.min(0.35, state.flash * 0.45)})`;
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+  }
 }
 
 function loop(now) {
