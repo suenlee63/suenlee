@@ -484,6 +484,7 @@ function newGame() {
       beam: false,
     },
     evolutionNames: {},
+    evolvedRanks: {},
     evolutionReady: {
       knives: false,
       fire: false,
@@ -1115,6 +1116,26 @@ function boostCharacterUpgradeChoices(choices) {
   }
 }
 
+function addEvolvedUpgradeChoices(choices) {
+  for (const [key, evolutionName] of Object.entries(state.evolved)) {
+    if (!evolutionName || key === "cleaver") continue;
+    const level = state.weaponLevels[key] || 0;
+    if (level >= 12) continue;
+    const rank = state.evolvedRanks[key] || 0;
+    choices.push({
+      name: `Empower: ${state.evolutionNames[key] || weaponDefs[key].name}`,
+      text: `Evolved rank +1. ${weaponDefs[key].name} grows stronger after evolution.`,
+      weapon: key,
+      apply: (game) => {
+        game.weaponLevels[key] = Math.min(12, game.weaponLevels[key] + 1);
+        game.evolvedRanks[key] = rank + 1;
+        game.flash = 0.28;
+        addParticles(game.player.x, game.player.y, "#9ff4ff", 24);
+      },
+    });
+  }
+}
+
 function buildUpgradePool() {
   const choices = [];
   const levels = state.weaponLevels;
@@ -1131,6 +1152,7 @@ function buildUpgradePool() {
       });
     }
   }
+  addEvolvedUpgradeChoices(choices);
 
   if (levels.knives === 0) {
     choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, weapon: "knives", apply: (game) => game.weaponLevels.knives = 1 });
@@ -1482,7 +1504,8 @@ function updateUi() {
     chip.className = "weapon-chip";
     const marker = state.evolved[key] ? "*" : state.evolutionReady[key] ? "!" : "";
     const stage = state.evolutionStage[key] || 0;
-    const evoText = key === "cleaver" ? "" : state.evolved[key] ? ` ${state.evolutionNames[key] || "Evo"}` : ` E${stage}/3`;
+    const rankText = state.evolvedRanks[key] ? ` +${state.evolvedRanks[key]}` : "";
+    const evoText = key === "cleaver" ? "" : state.evolved[key] ? ` ${state.evolutionNames[key] || "Evo"}${rankText}` : ` E${stage}/3`;
     chip.textContent = `${marker}${weaponDefs[key].name} ${level}${evoText}`;
     ui.weaponList.append(chip);
   }
