@@ -40,7 +40,7 @@ const weaponDefs = {
   tome: { name: "Moon Tome", desc: "Rotating books carve a safe ring" },
   lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
   bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
-  frost: { name: "Frost Orb", desc: "Bursts cold zones that slow enemies" },
+  frost: { name: "Aqua Shot", desc: "Fires a focused water shot at one enemy" },
   wave: { name: "Tidal Wave", desc: "Sends a cute water burst around you" },
   shellguard: { name: "Shell Guard", desc: "Cracks a defensive shell pulse nearby" },
   poison: { name: "Poison Vial", desc: "Throws toxic pools behind the horde" },
@@ -274,8 +274,8 @@ const characterDefs = {
   },
   shell: {
     name: "Squirtle",
-    trait: "Cold defender. Frost, wave, and shell skills appear more often.",
-    affinity: ["frost", "frost", "wave", "wave", "shellguard", "shellguard"],
+    trait: "Water defender. Aqua Shot, wave, and shell skills appear more often.",
+    affinity: ["frost", "frost", "frost", "wave", "wave", "shellguard", "shellguard"],
     sprite: shellSprite,
     palette: palettes.shell,
     hp: 155,
@@ -393,9 +393,9 @@ const evolutionDefs = {
     { name: "Echo Fang", text: "Evolve bat and increase all weapon damage", apply: (game) => game.player.might *= 1.1 },
   ],
   frost: [
-    { name: "Winter Star", text: "Evolve frost into a wide freezing burst", apply: (game) => game.player.regen += 0.8 },
-    { name: "Crystal Shell", text: "Evolve frost and increase max HP", apply: (game) => { game.player.maxHp += 35; game.player.hp += 35; } },
-    { name: "Glacier Ring", text: "Evolve frost and boost pickup range", apply: (game) => game.player.pickup *= 1.2 },
+    { name: "Aqua Spear", text: "Evolve Aqua Shot into a piercing water strike", apply: (game) => game.player.might *= 1.1 },
+    { name: "Bubble Sniper", text: "Evolve Aqua Shot and gain pickup range", apply: (game) => game.player.pickup *= 1.2 },
+    { name: "Shell Piercer", text: "Evolve Aqua Shot and gain defense", apply: (game) => { game.player.maxHp += 30; game.player.hp += 30; } },
   ],
   wave: [
     { name: "Surf Spiral", text: "Evolve wave into a wider water spiral", apply: (game) => game.player.speed *= 1.08 },
@@ -426,7 +426,7 @@ const ascensionDefs = {
   tome: { name: "Lunar Singularity", text: "Ascend tome into its final form. Orbit power and XP gain rise.", apply: (game) => { game.player.might *= 1.08; game.player.xpGain *= 1.14; } },
   lightning: { name: "Heaven Breaker", text: "Ascend lightning into its final form. Strikes hit with final power.", apply: (game) => game.player.might *= 1.16 },
   bat: { name: "Eclipse Flock", text: "Ascend bat into its final form. Speed and damage rise.", apply: (game) => { game.player.speed *= 1.08; game.player.might *= 1.08; } },
-  frost: { name: "Absolute Zero", text: "Ascend frost into its final form. Defense and cold power rise.", apply: (game) => { game.player.maxHp += 45; game.player.hp += 45; game.player.might *= 1.06; } },
+  frost: { name: "Hydro Cannon", text: "Ascend Aqua Shot into its final form. Single-target water damage peaks.", apply: (game) => game.player.might *= 1.16 },
   wave: { name: "Ocean Heart", text: "Ascend wave into its final form. Water power and speed rise.", apply: (game) => { game.player.speed *= 1.1; game.player.might *= 1.08; } },
   shellguard: { name: "Titan Shell", text: "Ascend shell guard into its final form. Defense reaches its peak.", apply: (game) => { game.player.maxHp += 60; game.player.hp += 60; game.player.regen += 0.8; } },
   poison: { name: "World Plague", text: "Ascend poison into its final form. Toxic pools and XP scaling rise.", apply: (game) => { game.player.hazardBonus *= 1.1; game.player.xpGain *= 1.12; } },
@@ -853,24 +853,28 @@ function sendSpiritBat() {
   }
 }
 
-function burstFrost() {
+function fireAquaShot() {
   const p = state.player;
   const level = state.weaponLevels.frost;
   const target = nearestEnemy(760);
-  const x = target ? target.x : p.x + rand(-160, 160);
-  const y = target ? target.y : p.y + rand(-120, 120);
-  state.hazards.push({
-    x,
-    y,
-    r: (state.evolved.frost ? 92 : 46) + level * 4,
-    damage: (2.2 + level * 0.8) * p.might,
-    tick: 0,
-    life: state.evolved.frost ? 4.6 : 2.4,
-    maxLife: state.evolved.frost ? 4.6 : 2.4,
-    evolved: state.evolved.frost,
-    slow: state.evolved.frost ? 0.42 : 0.62,
-    kind: "frost",
-  });
+  if (!target) return;
+  const evolved = state.evolved.frost;
+  const count = state.ascended.frost ? 3 : evolved ? 2 : 1;
+  for (let i = 0; i < count; i += 1) {
+    const spread = (i - (count - 1) / 2) * 0.18;
+    const angle = Math.atan2(target.y - p.y, target.x - p.x) + spread;
+    state.projectiles.push({
+      x: p.x,
+      y: p.y - 4,
+      vx: Math.cos(angle) * (evolved ? 560 : 470),
+      vy: Math.sin(angle) * (evolved ? 560 : 470),
+      damage: (10 + level * 3.2) * p.might,
+      life: evolved ? 1.7 : 1.25,
+      angle,
+      kind: "aqua",
+      pierce: state.ascended.frost ? 3 : evolved ? 1 : 0,
+    });
+  }
 }
 
 function castTidalWave() {
@@ -1029,8 +1033,8 @@ function updateWeapons(dt) {
   if (levels.frost > 0) {
     timers.frost -= dt;
     if (timers.frost <= 0) {
-      burstFrost();
-      timers.frost = Math.max(0.72, 1.9 - levels.frost * 0.1);
+      fireAquaShot();
+      timers.frost = Math.max(0.42, 1.25 - levels.frost * 0.06);
     }
   }
 
@@ -1336,9 +1340,9 @@ function buildUpgradePool() {
   }
 
   if (levels.frost === 0) {
-    choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
+    choices.push({ name: "Unlock Aqua Shot", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
   } else if (!state.evolved.frost) {
-    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
+    choices.push({ name: "Pressurized Shot", text: "Aqua Shot fires faster and hits harder", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
   if (levels.wave === 0) {
@@ -1928,6 +1932,11 @@ function drawProjectiles() {
         drawPixelRect(5, -2, 7, 4, "#2b1740");
         drawPixelRect(-1, -1, 3, 3, "#a37bd1");
       }
+    } else if (projectile.kind === "aqua") {
+      drawPixelRect(-12, -3, 18, 6, "#6ed8ff");
+      drawPixelRect(4, -5, 8, 10, "#d6fbff");
+      drawPixelRect(-15, -2, 5, 4, "#2f91d1");
+      drawPixelRect(-6, -1, 7, 2, "#ffffff");
     } else {
       drawPixelRect(-9, -1, 14, 3, "#d8d6ca");
       drawPixelRect(5, -2, 5, 5, "#f4d891");
