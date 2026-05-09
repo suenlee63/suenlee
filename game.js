@@ -899,6 +899,12 @@ function fireSunBeam() {
   }
 }
 
+function beamCooldown(level) {
+  if (state.ascended.beam) return Math.max(0.55, 1.65 - level * 0.08);
+  if (state.evolved.beam) return Math.max(0.75, 2.05 - level * 0.1);
+  return Math.max(0.95, 2.65 - level * 0.16);
+}
+
 function updateWeapons(dt) {
   const levels = state.weaponLevels;
   const timers = state.weaponTimers;
@@ -967,7 +973,7 @@ function updateWeapons(dt) {
     timers.beam -= dt;
     if (timers.beam <= 0) {
       fireSunBeam();
-      timers.beam = Math.max(1.15, 2.85 - levels.beam * 0.12);
+      timers.beam = beamCooldown(levels.beam);
     }
   }
 }
@@ -1255,7 +1261,7 @@ function buildUpgradePool() {
   if (levels.beam === 0) {
     choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
   } else if (!state.evolved.beam) {
-    choices.push({ name: "Focused Beam", text: "Beam width and piercing damage grow with each level", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
+    choices.push({ name: "Focused Beam", text: "Beam width, fire rate, and piercing damage grow with each level", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
   }
 
   const cleaverUpgrades = [
