@@ -742,7 +742,7 @@ function fireKnife() {
 
   const p = state.player;
   const evolved = state.evolved.knives;
-  const count = (evolved ? 4 : 1) + Math.floor(level / 3) + (p.bladeBonus > 1 && level >= 4 ? 1 : 0);
+  const count = (evolved ? 4 : 1) + Math.floor(level / 2) + (state.ascended.knives ? 2 : 0) + (p.bladeBonus > 1 && level >= 4 ? 1 : 0);
   for (let i = 0; i < count; i += 1) {
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + (i - (count - 1) / 2) * (evolved ? 0.28 : 0.16);
     state.projectiles.push({
@@ -837,7 +837,7 @@ function sendSpiritBat() {
   const target = nearestEnemy(780);
   if (!target) return;
   const evolved = state.evolved.bat;
-  const count = 1 + Math.floor(level / 4) + (evolved ? 3 : 0);
+  const count = 1 + Math.floor(level / 3) + (evolved ? 3 : 0) + (state.ascended.bat ? 2 : 0);
   for (let i = 0; i < count; i += 1) {
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + (i - (count - 1) / 2) * 0.35;
     state.projectiles.push({
@@ -861,7 +861,7 @@ function fireAquaShot() {
   const target = nearestEnemy(760);
   if (!target) return;
   const evolved = state.evolved.frost;
-  const count = state.ascended.frost ? 3 : evolved ? 2 : 1;
+  const count = (state.ascended.frost ? 3 : evolved ? 2 : 1) + Math.floor(level / 5);
   for (let i = 0; i < count; i += 1) {
     const spread = (i - (count - 1) / 2) * 0.18;
     const angle = Math.atan2(target.y - p.y, target.x - p.x) + spread;
@@ -993,7 +993,7 @@ function updateWeapons(dt) {
     if (timers.knives <= 0) {
       fireKnife();
       const hunterBladeRate = state.player.bladeBonus > 1 ? 0.86 : 1;
-      timers.knives = Math.max(0.26, (1.02 - levels.knives * 0.085) * hunterBladeRate);
+      timers.knives = Math.max(0.2, (0.98 - levels.knives * 0.095) * hunterBladeRate);
     }
   }
 
@@ -1029,7 +1029,7 @@ function updateWeapons(dt) {
     timers.bat -= dt;
     if (timers.bat <= 0) {
       sendSpiritBat();
-      timers.bat = Math.max(0.42, 1.45 - levels.bat * 0.08);
+      timers.bat = Math.max(0.32, 1.34 - levels.bat * 0.095);
     }
   }
 
@@ -1037,7 +1037,7 @@ function updateWeapons(dt) {
     timers.frost -= dt;
     if (timers.frost <= 0) {
       fireAquaShot();
-      timers.frost = Math.max(0.42, 1.25 - levels.frost * 0.06);
+      timers.frost = Math.max(0.28, 1.08 - levels.frost * 0.07);
     }
   }
 
@@ -1309,7 +1309,7 @@ function buildUpgradePool() {
   if (levels.knives === 0) {
     choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, weapon: "knives", apply: (game) => game.weaponLevels.knives = 1 });
   } else if (!state.evolved.knives) {
-    choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", weapon: "knives", apply: (game) => upgradeWeaponLevel(game, "knives") });
+    choices.push({ name: "Sharpen Knives", text: "More knife damage, more blades, and faster throws", weapon: "knives", apply: (game) => upgradeWeaponLevel(game, "knives") });
   }
 
   if (levels.fire === 0) {
@@ -1339,13 +1339,13 @@ function buildUpgradePool() {
   if (levels.bat === 0) {
     choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, weapon: "bat", apply: (game) => game.weaponLevels.bat = 1 });
   } else if (!state.evolved.bat) {
-    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", weapon: "bat", apply: (game) => upgradeWeaponLevel(game, "bat") });
+    choices.push({ name: "Bigger Bat Wing", text: "More bats, more damage, and faster dives", weapon: "bat", apply: (game) => upgradeWeaponLevel(game, "bat") });
   }
 
   if (levels.frost === 0) {
     choices.push({ name: "Unlock Aqua Shot", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
   } else if (!state.evolved.frost) {
-    choices.push({ name: "Pressurized Shot", text: "Aqua Shot fires faster and hits harder", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
+    choices.push({ name: "Pressurized Shot", text: "Aqua Shot fires faster, hits harder, and gains more shots", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
   if (levels.wave === 0) {
