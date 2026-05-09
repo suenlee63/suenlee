@@ -41,6 +41,8 @@ const weaponDefs = {
   lightning: { name: "Lightning Rod", desc: "Calls random strikes from above" },
   bat: { name: "Spirit Bat", desc: "Summons a bat that dives into enemies" },
   frost: { name: "Frost Orb", desc: "Bursts cold zones that slow enemies" },
+  wave: { name: "Tidal Wave", desc: "Sends a cute water burst around you" },
+  shellguard: { name: "Shell Guard", desc: "Cracks a defensive shell pulse nearby" },
   poison: { name: "Poison Vial", desc: "Throws toxic pools behind the horde" },
   beam: { name: "Sun Beam", desc: "Fires a piercing line of light" },
 };
@@ -272,8 +274,8 @@ const characterDefs = {
   },
   shell: {
     name: "Squirtle",
-    trait: "Cold defender. Frost Orb upgrades appear more often.",
-    affinity: ["frost", "frost", "frost"],
+    trait: "Cold defender. Frost, wave, and shell skills appear more often.",
+    affinity: ["frost", "frost", "wave", "wave", "shellguard", "shellguard"],
     sprite: shellSprite,
     palette: palettes.shell,
     hp: 155,
@@ -395,6 +397,16 @@ const evolutionDefs = {
     { name: "Crystal Shell", text: "Evolve frost and increase max HP", apply: (game) => { game.player.maxHp += 35; game.player.hp += 35; } },
     { name: "Glacier Ring", text: "Evolve frost and boost pickup range", apply: (game) => game.player.pickup *= 1.2 },
   ],
+  wave: [
+    { name: "Surf Spiral", text: "Evolve wave into a wider water spiral", apply: (game) => game.player.speed *= 1.08 },
+    { name: "Bubble Current", text: "Evolve wave and gain pickup range", apply: (game) => game.player.pickup *= 1.2 },
+    { name: "Deep Tide", text: "Evolve wave and increase weapon damage", apply: (game) => game.player.might *= 1.08 },
+  ],
+  shellguard: [
+    { name: "Shell Fortress", text: "Evolve shell guard into a huge defensive pulse", apply: (game) => { game.player.maxHp += 35; game.player.hp += 35; } },
+    { name: "Pearl Guard", text: "Evolve shell guard and gain regeneration", apply: (game) => game.player.regen += 0.8 },
+    { name: "Aqua Shell", text: "Evolve shell guard and increase damage", apply: (game) => game.player.might *= 1.08 },
+  ],
   poison: [
     { name: "Plague Flask", text: "Evolve poison into huge toxic pools", apply: (game) => game.player.hazardBonus *= 1.1 },
     { name: "Gold Toxin", text: "Evolve poison and gain more XP from gems", apply: (game) => game.player.xpGain *= 1.2 },
@@ -415,6 +427,8 @@ const ascensionDefs = {
   lightning: { name: "Heaven Breaker", text: "Ascend lightning into its final form. Strikes hit with final power.", apply: (game) => game.player.might *= 1.16 },
   bat: { name: "Eclipse Flock", text: "Ascend bat into its final form. Speed and damage rise.", apply: (game) => { game.player.speed *= 1.08; game.player.might *= 1.08; } },
   frost: { name: "Absolute Zero", text: "Ascend frost into its final form. Defense and cold power rise.", apply: (game) => { game.player.maxHp += 45; game.player.hp += 45; game.player.might *= 1.06; } },
+  wave: { name: "Ocean Heart", text: "Ascend wave into its final form. Water power and speed rise.", apply: (game) => { game.player.speed *= 1.1; game.player.might *= 1.08; } },
+  shellguard: { name: "Titan Shell", text: "Ascend shell guard into its final form. Defense reaches its peak.", apply: (game) => { game.player.maxHp += 60; game.player.hp += 60; game.player.regen += 0.8; } },
   poison: { name: "World Plague", text: "Ascend poison into its final form. Toxic pools and XP scaling rise.", apply: (game) => { game.player.hazardBonus *= 1.1; game.player.xpGain *= 1.12; } },
   beam: { name: "Supernova Lance", text: "Ascend beam into its final form. Light damage reaches its peak.", apply: (game) => game.player.might *= 1.16 },
 };
@@ -481,6 +495,8 @@ function newGame() {
       lightning: 0,
       bat: 0,
       frost: 0,
+      wave: 0,
+      shellguard: 0,
       poison: 0,
       beam: 0,
     },
@@ -492,6 +508,8 @@ function newGame() {
       lightning: false,
       bat: false,
       frost: false,
+      wave: false,
+      shellguard: false,
       poison: false,
       beam: false,
     },
@@ -506,6 +524,8 @@ function newGame() {
       lightning: false,
       bat: false,
       frost: false,
+      wave: false,
+      shellguard: false,
       poison: false,
       beam: false,
     },
@@ -516,6 +536,11 @@ function newGame() {
       tome: 0,
       lightning: 0,
       bat: 0,
+      frost: 0,
+      wave: 0,
+      shellguard: 0,
+      poison: 0,
+      beam: 0,
     },
     weaponTimers: {
       knives: 1.2,
@@ -524,6 +549,8 @@ function newGame() {
       lightning: 2.0,
       bat: 1.0,
       frost: 1.8,
+      wave: 1.6,
+      shellguard: 2.1,
       poison: 1.5,
       beam: 2.8,
     },
@@ -846,6 +873,52 @@ function burstFrost() {
   });
 }
 
+function castTidalWave() {
+  const p = state.player;
+  const level = state.weaponLevels.wave;
+  const evolved = state.evolved.wave;
+  state.hazards.push({
+    x: p.x,
+    y: p.y,
+    r: (evolved ? 118 : 68) + level * 6,
+    damage: (2.4 + level * 0.9) * p.might,
+    tick: 0,
+    life: evolved ? 2.2 : 1.35,
+    maxLife: evolved ? 2.2 : 1.35,
+    evolved,
+    slow: evolved ? 0.48 : 0.66,
+    kind: "wave",
+  });
+}
+
+function pulseShellGuard() {
+  const p = state.player;
+  const level = state.weaponLevels.shellguard;
+  const evolved = state.evolved.shellguard;
+  const radius = (evolved ? 118 : 74) + level * 7;
+  const damage = (8 + level * 2.8) * p.might;
+  state.hazards.push({
+    x: p.x,
+    y: p.y,
+    r: radius,
+    damage,
+    tick: 0,
+    life: evolved ? 0.8 : 0.55,
+    maxLife: evolved ? 0.8 : 0.55,
+    evolved,
+    kind: "shellguard",
+  });
+  for (const enemy of state.enemies) {
+    if (!circleHitsActor(p.x, p.y, radius, enemy)) continue;
+    enemy.hp -= damage;
+    enemy.hitFlash = 1;
+    const angle = Math.atan2(enemy.y - p.y, enemy.x - p.x);
+    enemy.x += Math.cos(angle) * (evolved ? 18 : 10);
+    enemy.y += Math.sin(angle) * (evolved ? 18 : 10);
+    addParticles(enemy.x, enemy.y, "#b7f3ff", 7);
+  }
+}
+
 function throwPoison() {
   const p = state.player;
   const level = state.weaponLevels.poison;
@@ -961,6 +1034,22 @@ function updateWeapons(dt) {
     }
   }
 
+  if (levels.wave > 0) {
+    timers.wave -= dt;
+    if (timers.wave <= 0) {
+      castTidalWave();
+      timers.wave = Math.max(0.62, 1.75 - levels.wave * 0.08);
+    }
+  }
+
+  if (levels.shellguard > 0) {
+    timers.shellguard -= dt;
+    if (timers.shellguard <= 0) {
+      pulseShellGuard();
+      timers.shellguard = Math.max(0.9, 2.25 - levels.shellguard * 0.1);
+    }
+  }
+
   if (levels.poison > 0) {
     timers.poison -= dt;
     if (timers.poison <= 0) {
@@ -1021,13 +1110,13 @@ function updateHazards(dt) {
   for (const hazard of state.hazards) {
     hazard.life -= dt;
     hazard.tick -= dt;
-    if ((hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost") && hazard.tick <= 0) {
+    if ((hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost" || hazard.kind === "wave") && hazard.tick <= 0) {
       hazard.tick = 0.32;
       for (const enemy of state.enemies) {
         if (circleHitsActor(hazard.x, hazard.y, hazard.r, enemy)) {
           enemy.hp -= hazard.damage;
           enemy.hitFlash = 1;
-          if (hazard.kind === "frost") enemy.chilled = Math.max(enemy.chilled || 0, 0.7);
+          if (hazard.kind === "frost" || hazard.kind === "wave") enemy.chilled = Math.max(enemy.chilled || 0, hazard.kind === "wave" ? 0.45 : 0.7);
           const color = hazard.kind === "fire" ? "#ff9a3c" : hazard.kind === "poison" ? "#9be15d" : "#9be8ff";
           addParticles(enemy.x, enemy.y, color, 3);
         }
@@ -1252,6 +1341,18 @@ function buildUpgradePool() {
     choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
+  if (levels.wave === 0) {
+    choices.push({ name: "Unlock Tidal Wave", text: weaponDefs.wave.desc, weapon: "wave", apply: (game) => game.weaponLevels.wave = 1 });
+  } else if (!state.evolved.wave) {
+    choices.push({ name: "Stronger Tide", text: "Larger water bursts and stronger slow", weapon: "wave", apply: (game) => upgradeWeaponLevel(game, "wave") });
+  }
+
+  if (levels.shellguard === 0) {
+    choices.push({ name: "Unlock Shell Guard", text: weaponDefs.shellguard.desc, weapon: "shellguard", apply: (game) => game.weaponLevels.shellguard = 1 });
+  } else if (!state.evolved.shellguard) {
+    choices.push({ name: "Harder Shell", text: "Bigger shell pulse and more damage", weapon: "shellguard", apply: (game) => upgradeWeaponLevel(game, "shellguard") });
+  }
+
   if (levels.poison === 0) {
     choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, weapon: "poison", apply: (game) => game.weaponLevels.poison = 1 });
   } else if (!state.evolved.poison) {
@@ -1352,6 +1453,16 @@ function updateEvolutionReadiness() {
     w.frost >= 2,
     w.frost >= 4,
     w.frost >= 6,
+  ]);
+  state.evolutionStage.wave = evolutionStage([
+    w.wave >= 2,
+    w.wave >= 4,
+    w.wave >= 6,
+  ]);
+  state.evolutionStage.shellguard = evolutionStage([
+    w.shellguard >= 2,
+    w.shellguard >= 4,
+    w.shellguard >= 6,
   ]);
   state.evolutionStage.poison = evolutionStage([
     w.poison >= 2,
@@ -1696,11 +1807,12 @@ function drawHazards() {
     const y = hazard.y - state.camera.y;
     const alpha = clamp(hazard.life / hazard.maxLife, 0, 1);
 
-    if (hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost") {
+    if (hazard.kind === "fire" || hazard.kind === "poison" || hazard.kind === "frost" || hazard.kind === "wave") {
       const colors = {
         fire: ["255, 214, 91", "255, 116, 48", "95, 30, 19"],
         poison: ["185, 255, 103", "99, 190, 86", "31, 84, 45"],
         frost: ["180, 245, 255", "88, 176, 230", "22, 72, 94"],
+        wave: ["190, 246, 255", "72, 172, 232", "16, 73, 118"],
       }[hazard.kind];
       const grd = ctx.createRadialGradient(x, y, 4, x, y, hazard.r);
       grd.addColorStop(0, `rgba(${colors[0]}, ${0.38 * alpha})`);
@@ -1722,6 +1834,24 @@ function drawHazards() {
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(x, y, hazard.r * 1.02, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (hazard.kind === "shellguard") {
+      ctx.strokeStyle = `rgba(190, 246, 255, ${0.8 * alpha})`;
+      ctx.lineWidth = hazard.evolved ? 7 : 4;
+      ctx.beginPath();
+      ctx.arc(x, y, hazard.r * (1.1 - alpha * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(105, 185, 215, ${0.14 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, hazard.r * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.48 * alpha})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i += 1) {
+        const a = (i / 6) * Math.PI * 2 + state.elapsed;
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * hazard.r * 0.46, y + Math.sin(a) * hazard.r * 0.46, 7, 0, Math.PI * 2);
         ctx.stroke();
       }
     } else if (hazard.kind === "coil") {
