@@ -594,6 +594,22 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function cameraZoom() {
+  const touchScreen = navigator.maxTouchPoints > 0;
+  if (!touchScreen && innerWidth > 760) return 1;
+  if (innerWidth <= 430) return 0.68;
+  if (innerWidth <= 760) return 0.72;
+  return 0.82;
+}
+
+function viewWorldWidth() {
+  return innerWidth / cameraZoom();
+}
+
+function viewWorldHeight() {
+  return innerHeight / cameraZoom();
+}
+
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -668,11 +684,13 @@ function spawnEnemy(boss = false, eliteBoss = false) {
   const side = Math.floor(Math.random() * 4);
   const margin = 80;
   const cam = state.camera;
+  const viewW = viewWorldWidth();
+  const viewH = viewWorldHeight();
   const pos = [
-    { x: cam.x + rand(-margin, innerWidth + margin), y: cam.y - margin },
-    { x: cam.x + innerWidth + margin, y: cam.y + rand(-margin, innerHeight + margin) },
-    { x: cam.x + rand(-margin, innerWidth + margin), y: cam.y + innerHeight + margin },
-    { x: cam.x - margin, y: cam.y + rand(-margin, innerHeight + margin) },
+    { x: cam.x + rand(-margin, viewW + margin), y: cam.y - margin },
+    { x: cam.x + viewW + margin, y: cam.y + rand(-margin, viewH + margin) },
+    { x: cam.x + rand(-margin, viewW + margin), y: cam.y + viewH + margin },
+    { x: cam.x - margin, y: cam.y + rand(-margin, viewH + margin) },
   ][side];
 
   const minutes = state.elapsed / 60;
@@ -1814,8 +1832,8 @@ function update(dt) {
     p.y += (dy / len) * p.speed * dt;
     if (Math.abs(dx) > 0.2) p.facing = Math.sign(dx);
   }
-  state.camera.x += (p.x - innerWidth / 2 - state.camera.x) * Math.min(1, dt * 8);
-  state.camera.y += (p.y - innerHeight / 2 - state.camera.y) * Math.min(1, dt * 8);
+  state.camera.x += (p.x - viewWorldWidth() / 2 - state.camera.x) * Math.min(1, dt * 8);
+  state.camera.y += (p.y - viewWorldHeight() / 2 - state.camera.y) * Math.min(1, dt * 8);
 
   const ascensions = ascensionPressure();
   const spawnRate = Math.max(ascensions > 0 ? 0.1 : 0.17, 0.8 - state.elapsed / 190 - ascensions * 0.075);
@@ -2038,9 +2056,11 @@ function seededNoise(x, y) {
 function drawGroundDetails() {
   const startX = Math.floor(state.camera.x / TILE) * TILE;
   const startY = Math.floor(state.camera.y / TILE) * TILE;
+  const viewW = viewWorldWidth();
+  const viewH = viewWorldHeight();
 
-  for (let x = startX; x < state.camera.x + innerWidth + TILE; x += TILE) {
-    for (let y = startY; y < state.camera.y + innerHeight + TILE; y += TILE) {
+  for (let x = startX; x < state.camera.x + viewW + TILE; x += TILE) {
+    for (let y = startY; y < state.camera.y + viewH + TILE; y += TILE) {
       const tx = Math.floor(x / TILE);
       const ty = Math.floor(y / TILE);
       const n = seededNoise(tx, ty);
@@ -2429,6 +2449,7 @@ function draw() {
   if (!state) return;
 
   ctx.save();
+  ctx.scale(cameraZoom(), cameraZoom());
   if (state.shake > 0) ctx.translate(rand(-5, 5) * state.shake, rand(-5, 5) * state.shake);
 
   drawGroundDetails();
