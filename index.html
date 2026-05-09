@@ -43,7 +43,7 @@
     <div class="main-menu">
       <div class="menu-copy">
         <div class="eyebrow">Retro Auto-Survival</div>
-        <h1>Zombie Grid Survival v52</h1>
+        <h1>Zombie Grid Survival v53</h1>
         <p>Build a weapon set, evolve it, and survive the first 10 minutes.</p>
         <div class="character-select" aria-label="Character select">
           <button class="character-card selected" type="button" data-character="hunter">
@@ -85,11 +85,14 @@
   <div id="gameOver" class="modal hidden">
     <div class="panel">
       <h1>Game Over</h1>
-      <p><span id="finalTime">00:00</span> survived - <span id="finalKills">0</span> kills</p>
-      <button id="restartBtn">Restart</button>
+      <p><span id="finalTime">00:00</span> survived - Lv <span id="finalLevel">1</span> - <span id="finalKills">0</span> kills</p>
+      <div class="end-actions">
+        <button id="restartBtn">Restart</button>
+        <button id="mainMenuBtn" class="secondary-btn">Main Menu</button>
+      </div>
     </div>
   </div>
 
-  <script src="./game.js?v=54"></script>
+  <script src="./game.js?v=55"></script>
 </body>
 </html>

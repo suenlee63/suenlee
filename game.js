@@ -13,7 +13,9 @@ const ui = {
   choices: document.getElementById("choices"),
   gameOver: document.getElementById("gameOver"),
   restartBtn: document.getElementById("restartBtn"),
+  mainMenuBtn: document.getElementById("mainMenuBtn"),
   finalTime: document.getElementById("finalTime"),
+  finalLevel: document.getElementById("finalLevel"),
   finalKills: document.getElementById("finalKills"),
   weaponList: document.getElementById("weaponList"),
   pauseBtn: document.getElementById("pauseBtn"),
@@ -1983,8 +1985,20 @@ function endGame() {
   manualPaused = false;
   updatePauseButton();
   ui.finalTime.textContent = formatTime(state.elapsed);
+  ui.finalLevel.textContent = state.player.level;
   ui.finalKills.textContent = state.kills;
   ui.gameOver.classList.remove("hidden");
+}
+
+function returnToMainMenu() {
+  paused = true;
+  manualPaused = false;
+  resetTouchMove();
+  updatePauseButton();
+  ui.levelUp.classList.add("hidden");
+  ui.gameOver.classList.add("hidden");
+  ui.start.classList.remove("hidden");
+  document.body.classList.add("menu-open");
 }
 
 function drawPixelRect(x, y, w, h, color) {
@@ -2487,6 +2501,7 @@ if (ui.touchStick) {
 }
 ui.startBtn.addEventListener("click", newGame);
 ui.restartBtn.addEventListener("click", newGame);
+ui.mainMenuBtn.addEventListener("click", returnToMainMenu);
 ui.pauseBtn.addEventListener("click", togglePause);
 for (const card of ui.characterCards) {
   card.addEventListener("click", () => selectCharacter(card.dataset.character));

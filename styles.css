@@ -247,6 +247,19 @@ canvas {
   min-width: 150px;
 }
 
+.end-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.secondary-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3eee7;
+}
+
 .character-select {
   display: grid;
   gap: 8px;
