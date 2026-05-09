@@ -519,10 +519,11 @@ function spawnEnemy(boss = false) {
 function performAreaAttack() {
   const p = state.player;
   const radius = 44 + p.attackRadius * 22;
-  state.attacks.push({ x: p.x, y: p.y, radius, facing: p.facing, life: 0.22, maxLife: 0.22 });
+  const arc = 1.15;
+  state.attacks.push({ x: p.x, y: p.y, radius, facing: p.facing, arc, shape: "arc", life: 0.22, maxLife: 0.22 });
 
   for (const enemy of state.enemies) {
-    if (circleHitsActor(p.x, p.y, radius, enemy)) {
+    if (arcHitsActor(p.x, p.y, p.facing, radius, arc, enemy)) {
       enemy.hp -= p.damage * p.might;
       enemy.hitFlash = 1;
       addParticles(enemy.x, enemy.y, enemy.boss ? "#c05cff" : "#d5e879", enemy.boss ? 18 : 8);
@@ -550,6 +551,20 @@ function actorRadius(actor) {
 
 function circleHitsActor(x, y, radius, actor) {
   return Math.hypot(actor.x - x, actor.y - y) <= radius + actorRadius(actor);
+}
+
+function arcHitsActor(x, y, facing, radius, arc, actor) {
+  const dx = actor.x - x;
+  const dy = actor.y - y;
+  const distanceToActor = Math.hypot(dx, dy);
+  if (distanceToActor > radius + actorRadius(actor)) return false;
+  if (distanceToActor < actorRadius(actor) + 10) return true;
+
+  const forwardAngle = facing >= 0 ? 0 : Math.PI;
+  let diff = Math.atan2(dy, dx) - forwardAngle;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return Math.abs(diff) <= arc + actorRadius(actor) / Math.max(24, distanceToActor);
 }
 
 function actorsTouch(a, b) {
@@ -1270,18 +1285,32 @@ function drawAttacks() {
     const alpha = clamp(attack.life / attack.maxLife, 0, 1);
     const x = attack.x - state.camera.x;
     const y = attack.y - state.camera.y;
+
+    if (attack.shape !== "arc") {
+      ctx.strokeStyle = `rgba(255, 226, 144, ${0.48 * alpha})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x, y, attack.radius * (1.04 - alpha * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(224, 179, 95, ${0.1 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, attack.radius, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(attack.facing, 1);
     ctx.strokeStyle = `rgba(255, 226, 144, ${0.55 * alpha})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, attack.radius * (1.04 - alpha * 0.1), -1.15, 1.15);
+    ctx.arc(0, 0, attack.radius * (1.04 - alpha * 0.1), -attack.arc, attack.arc);
     ctx.stroke();
     ctx.strokeStyle = `rgba(224, 179, 95, ${0.28 * alpha})`;
     ctx.lineWidth = 9;
     ctx.beginPath();
-    ctx.arc(0, 0, attack.radius * 0.78, -1.0, 1.0);
+    ctx.arc(0, 0, attack.radius * 0.78, -attack.arc * 0.87, attack.arc * 0.87);
     ctx.stroke();
     ctx.restore();
   }
