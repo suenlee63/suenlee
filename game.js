@@ -836,10 +836,16 @@ function gainXp(value) {
   while (p.xp >= p.nextXp) {
     p.xp -= p.nextXp;
     p.level += 1;
-    p.nextXp = Math.floor(p.nextXp * 1.18 + 4);
+    p.nextXp = nextLevelXp(p.level, p.nextXp);
     showLevelUp();
     break;
   }
+}
+
+function nextLevelXp(level, currentXp) {
+  if (level < 13) return Math.floor(currentXp * 1.18 + 4);
+  if (level < 22) return Math.floor(currentXp * 1.08 + 6);
+  return Math.floor(currentXp * 1.045 + 8);
 }
 
 function buildUpgradePool() {
