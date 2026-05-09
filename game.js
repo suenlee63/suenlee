@@ -17,6 +17,8 @@ const ui = {
   finalKills: document.getElementById("finalKills"),
   weaponList: document.getElementById("weaponList"),
   pauseBtn: document.getElementById("pauseBtn"),
+  touchStick: document.getElementById("touchStick"),
+  touchKnob: document.getElementById("touchKnob"),
   goalSurvive: document.getElementById("goalSurvive"),
   goalEvolve: document.getElementById("goalEvolve"),
   characterCards: document.querySelectorAll(".character-card"),
@@ -31,6 +33,7 @@ let lastTime = 0;
 let paused = true;
 let manualPaused = false;
 let selectedCharacter = "hunter";
+const touchMove = { active: false, id: null, startX: 0, startY: 0, dx: 0, dy: 0 };
 
 const weaponDefs = {
   cleaver: { name: "Grid Cleaver", desc: "Strikes cells around you" },
@@ -1525,6 +1528,54 @@ function togglePause() {
   updatePauseButton();
 }
 
+function setTouchStickPosition(x, y) {
+  if (!ui.touchStick || !ui.touchKnob) return;
+  ui.touchStick.style.left = `${x}px`;
+  ui.touchStick.style.top = `${y}px`;
+}
+
+function updateTouchKnob(dx, dy) {
+  if (!ui.touchKnob) return;
+  ui.touchKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+
+function resetTouchMove() {
+  touchMove.active = false;
+  touchMove.id = null;
+  touchMove.dx = 0;
+  touchMove.dy = 0;
+  if (ui.touchStick) ui.touchStick.classList.remove("active");
+  updateTouchKnob(0, 0);
+}
+
+function beginTouchMove(event) {
+  if (touchMove.active || event.pointerType === "mouse") return;
+  if (!state || !state.running || paused || !ui.levelUp.classList.contains("hidden")) return;
+  touchMove.active = true;
+  touchMove.id = event.pointerId;
+  touchMove.startX = event.clientX;
+  touchMove.startY = event.clientY;
+  touchMove.dx = 0;
+  touchMove.dy = 0;
+  setTouchStickPosition(event.clientX, event.clientY);
+  ui.touchStick.classList.add("active");
+  ui.touchStick.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function updateTouchMove(event) {
+  if (!touchMove.active || event.pointerId !== touchMove.id) return;
+  const max = 46;
+  const rawX = event.clientX - touchMove.startX;
+  const rawY = event.clientY - touchMove.startY;
+  const len = Math.hypot(rawX, rawY);
+  const scale = len > max ? max / len : 1;
+  touchMove.dx = rawX * scale;
+  touchMove.dy = rawY * scale;
+  updateTouchKnob(touchMove.dx, touchMove.dy);
+  event.preventDefault();
+}
+
 function selectCharacter(key) {
   selectedCharacter = key;
   const character = characterDefs[key];
@@ -1558,6 +1609,10 @@ function update(dt) {
   if (keys.has("KeyS") || keys.has("ArrowDown")) dy += 1;
   if (keys.has("KeyA") || keys.has("ArrowLeft")) dx -= 1;
   if (keys.has("KeyD") || keys.has("ArrowRight")) dx += 1;
+  if (touchMove.active) {
+    dx += touchMove.dx / 46;
+    dy += touchMove.dy / 46;
+  }
   if (dx || dy) {
     const len = Math.hypot(dx, dy);
     p.x += (dx / len) * p.speed * dt;
@@ -2147,6 +2202,13 @@ window.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("keyup", (event) => keys.delete(event.code));
+if (ui.touchStick) {
+  ui.touchStick.addEventListener("pointerdown", beginTouchMove);
+  ui.touchStick.addEventListener("pointermove", updateTouchMove);
+  ui.touchStick.addEventListener("pointerup", resetTouchMove);
+  ui.touchStick.addEventListener("pointercancel", resetTouchMove);
+  ui.touchStick.addEventListener("lostpointercapture", resetTouchMove);
+}
 ui.startBtn.addEventListener("click", newGame);
 ui.restartBtn.addEventListener("click", newGame);
 ui.pauseBtn.addEventListener("click", togglePause);

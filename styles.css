@@ -22,7 +22,8 @@ canvas {
 
 .menu-open .hud,
 .menu-open .goal-panel,
-.menu-open .pause-btn {
+.menu-open .pause-btn,
+.menu-open .touch-stick {
   display: none;
 }
 
@@ -139,6 +140,40 @@ canvas {
   display: block;
   margin-bottom: 4px;
   color: #ffe2a0;
+}
+
+.touch-stick {
+  position: fixed;
+  left: 72px;
+  bottom: 72px;
+  z-index: 4;
+  width: 104px;
+  height: 104px;
+  border: 1px solid rgba(139, 232, 255, 0.32);
+  border-radius: 50%;
+  background: rgba(8, 18, 24, 0.38);
+  box-shadow: inset 0 0 22px rgba(139, 232, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+}
+
+.touch-stick.active {
+  opacity: 0.95;
+}
+
+.touch-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 50%;
+  background: rgba(139, 232, 255, 0.45);
+  transform: translate(-50%, -50%);
 }
 
 .goal-done {
@@ -497,6 +532,12 @@ button:hover {
 }
 
 @media (max-width: 520px) {
+  body {
+    min-height: 100svh;
+    overflow: hidden;
+    touch-action: none;
+  }
+
   .hud {
     top: 10px;
     left: 10px;
@@ -511,7 +552,28 @@ button:hover {
     min-width: 0;
     flex: 1;
     padding: 7px 8px;
-    font-size: 13px;
+    font-size: 12px;
+  }
+
+  .weapon-list {
+    max-height: 112px;
+    overflow: hidden;
+  }
+
+  .weapon-chip {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .goal-panel {
+    display: none;
+  }
+
+  .pause-btn {
+    right: 10px;
+    top: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   h1 {
@@ -520,15 +582,48 @@ button:hover {
 
   .main-menu {
     grid-template-columns: 1fr;
-    gap: 18px;
-    padding: 20px;
+    gap: 12px;
+    max-height: calc(100svh - 24px);
+    padding: 14px;
+    overflow: auto;
   }
 
   .menu-copy h1 {
-    font-size: 34px;
+    font-size: 30px;
   }
 
   .menu-board {
-    min-height: 330px;
+    min-height: 260px;
+  }
+
+  .character-select {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .character-card {
+    min-height: 46px;
+    padding: 8px 10px;
+  }
+
+  .hero-sprite {
+    transform: scale(0.82);
+  }
+
+  .panel {
+    width: calc(100vw - 24px);
+    max-height: calc(100svh - 24px);
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .choice strong {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .touch-stick {
+    opacity: 0.48;
+    pointer-events: auto;
   }
 }
