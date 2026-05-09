@@ -407,6 +407,18 @@ const evolutionDefs = {
   ],
 };
 
+const ascensionDefs = {
+  knives: { name: "Astral Blade Rain", text: "Ascend knives into their final form. Level jumps beyond the evolved limit.", apply: (game) => game.player.might *= 1.14 },
+  fire: { name: "Inferno Storm", text: "Ascend fire into its final form. Burning zones surge harder.", apply: (game) => game.player.hazardBonus *= 1.14 },
+  coil: { name: "Godspark Coil", text: "Ascend coil into its final form. Electric power and recovery rise.", apply: (game) => { game.player.might *= 1.08; game.player.regen += 0.8; } },
+  tome: { name: "Lunar Singularity", text: "Ascend tome into its final form. Orbit power and XP gain rise.", apply: (game) => { game.player.might *= 1.08; game.player.xpGain *= 1.14; } },
+  lightning: { name: "Heaven Breaker", text: "Ascend lightning into its final form. Strikes hit with final power.", apply: (game) => game.player.might *= 1.16 },
+  bat: { name: "Eclipse Flock", text: "Ascend bat into its final form. Speed and damage rise.", apply: (game) => { game.player.speed *= 1.08; game.player.might *= 1.08; } },
+  frost: { name: "Absolute Zero", text: "Ascend frost into its final form. Defense and cold power rise.", apply: (game) => { game.player.maxHp += 45; game.player.hp += 45; game.player.might *= 1.06; } },
+  poison: { name: "World Plague", text: "Ascend poison into its final form. Toxic pools and XP scaling rise.", apply: (game) => { game.player.hazardBonus *= 1.1; game.player.xpGain *= 1.12; } },
+  beam: { name: "Supernova Lance", text: "Ascend beam into its final form. Light damage reaches its peak.", apply: (game) => game.player.might *= 1.16 },
+};
+
 function resize() {
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   canvas.width = Math.floor(innerWidth * dpr);
@@ -485,6 +497,7 @@ function newGame() {
     },
     evolutionNames: {},
     evolvedRanks: {},
+    ascended: {},
     evolutionReady: {
       knives: false,
       fire: false,
@@ -1116,18 +1129,53 @@ function boostCharacterUpgradeChoices(choices) {
   }
 }
 
+function maxWeaponLevel(game, key) {
+  if (game.ascended[key]) return 14;
+  if (game.evolved[key]) return 12;
+  return 8;
+}
+
+function upgradeWeaponLevel(game, key) {
+  game.weaponLevels[key] = Math.min(maxWeaponLevel(game, key), game.weaponLevels[key] + 1);
+}
+
+function ascendWeapon(key, ascension) {
+  if (state.ascended[key]) return;
+  state.ascended[key] = ascension.name;
+  state.evolutionNames[key] = ascension.name;
+  state.weaponLevels[key] = Math.max(14, state.weaponLevels[key]);
+  state.evolvedRanks[key] = (state.evolvedRanks[key] || 0) + 2;
+  ascension.apply(state);
+  state.flash = 0.8;
+  state.shake = 1.8;
+  addParticles(state.player.x, state.player.y, "#fff4a8", 70);
+  state.attacks.push({ x: state.player.x, y: state.player.y, radius: 310, facing: 1, life: 0.8, maxLife: 0.8, shape: "evolve" });
+  console.log(`ascended: ${ascension.name}`);
+}
+
 function addEvolvedUpgradeChoices(choices) {
   for (const [key, evolutionName] of Object.entries(state.evolved)) {
     if (!evolutionName || key === "cleaver") continue;
     const level = state.weaponLevels[key] || 0;
-    if (level >= 12) continue;
+    if (level >= 12) {
+      if (state.ascended[key]) continue;
+      const ascension = ascensionDefs[key];
+      if (!ascension) continue;
+      choices.push({
+        name: `Ascend: ${ascension.name}`,
+        text: ascension.text,
+        weapon: key,
+        apply: () => ascendWeapon(key, ascension),
+      });
+      continue;
+    }
     const rank = state.evolvedRanks[key] || 0;
     choices.push({
       name: `Empower: ${state.evolutionNames[key] || weaponDefs[key].name}`,
       text: `Evolved rank +1. ${weaponDefs[key].name} grows stronger after evolution.`,
       weapon: key,
       apply: (game) => {
-        game.weaponLevels[key] = Math.min(12, game.weaponLevels[key] + 1);
+        upgradeWeaponLevel(game, key);
         game.evolvedRanks[key] = rank + 1;
         game.flash = 0.28;
         addParticles(game.player.x, game.player.y, "#9ff4ff", 24);
@@ -1157,55 +1205,55 @@ function buildUpgradePool() {
   if (levels.knives === 0) {
     choices.push({ name: "Unlock Throwing Knives", text: weaponDefs.knives.desc, weapon: "knives", apply: (game) => game.weaponLevels.knives = 1 });
   } else {
-    choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", weapon: "knives", apply: (game) => game.weaponLevels.knives = Math.min(8, game.weaponLevels.knives + 1) });
+    choices.push({ name: "Sharpen Knives", text: "More knife damage and faster throws", weapon: "knives", apply: (game) => upgradeWeaponLevel(game, "knives") });
   }
 
   if (levels.fire === 0) {
     choices.push({ name: "Unlock Fire Bottles", text: weaponDefs.fire.desc, weapon: "fire", apply: (game) => game.weaponLevels.fire = 1 });
   } else {
-    choices.push({ name: "Hotter Fire", text: "Fire lasts longer and burns harder", weapon: "fire", apply: (game) => game.weaponLevels.fire = Math.min(8, game.weaponLevels.fire + 1) });
+    choices.push({ name: "Hotter Fire", text: "Fire lasts longer and burns harder", weapon: "fire", apply: (game) => upgradeWeaponLevel(game, "fire") });
   }
 
   if (levels.coil === 0) {
     choices.push({ name: "Unlock Shock Coil", text: weaponDefs.coil.desc, weapon: "coil", apply: (game) => game.weaponLevels.coil = 1 });
   } else {
-    choices.push({ name: "Overcharged Coil", text: "Bigger electric pulse damage", weapon: "coil", apply: (game) => game.weaponLevels.coil = Math.min(8, game.weaponLevels.coil + 1) });
+    choices.push({ name: "Overcharged Coil", text: "Bigger electric pulse damage", weapon: "coil", apply: (game) => upgradeWeaponLevel(game, "coil") });
   }
 
   if (levels.tome === 0) {
     choices.push({ name: "Unlock Moon Tome", text: weaponDefs.tome.desc, weapon: "tome", apply: (game) => game.weaponLevels.tome = 1 });
   } else {
-    choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", weapon: "tome", apply: (game) => game.weaponLevels.tome = Math.min(8, game.weaponLevels.tome + 1) });
+    choices.push({ name: "More Moon Pages", text: "More orbiting books and stronger ring damage", weapon: "tome", apply: (game) => upgradeWeaponLevel(game, "tome") });
   }
 
   if (levels.lightning === 0) {
     choices.push({ name: "Unlock Lightning Rod", text: weaponDefs.lightning.desc, weapon: "lightning", apply: (game) => game.weaponLevels.lightning = 1 });
   } else {
-    choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", weapon: "lightning", apply: (game) => game.weaponLevels.lightning = Math.min(8, game.weaponLevels.lightning + 1) });
+    choices.push({ name: "Charged Rod", text: "More lightning damage and faster strikes", weapon: "lightning", apply: (game) => upgradeWeaponLevel(game, "lightning") });
   }
 
   if (levels.bat === 0) {
     choices.push({ name: "Unlock Spirit Bat", text: weaponDefs.bat.desc, weapon: "bat", apply: (game) => game.weaponLevels.bat = 1 });
   } else {
-    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", weapon: "bat", apply: (game) => game.weaponLevels.bat = Math.min(8, game.weaponLevels.bat + 1) });
+    choices.push({ name: "Bigger Bat Wing", text: "More bat damage and more dives", weapon: "bat", apply: (game) => upgradeWeaponLevel(game, "bat") });
   }
 
   if (levels.frost === 0) {
     choices.push({ name: "Unlock Frost Orb", text: weaponDefs.frost.desc, weapon: "frost", apply: (game) => game.weaponLevels.frost = 1 });
   } else {
-    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => game.weaponLevels.frost = Math.min(8, game.weaponLevels.frost + 1) });
+    choices.push({ name: "Colder Frost", text: "Larger cold zones and stronger slow", weapon: "frost", apply: (game) => upgradeWeaponLevel(game, "frost") });
   }
 
   if (levels.poison === 0) {
     choices.push({ name: "Unlock Poison Vial", text: weaponDefs.poison.desc, weapon: "poison", apply: (game) => game.weaponLevels.poison = 1 });
   } else {
-    choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", weapon: "poison", apply: (game) => game.weaponLevels.poison = Math.min(8, game.weaponLevels.poison + 1) });
+    choices.push({ name: "Toxic Mixture", text: "Longer poison pools and more damage", weapon: "poison", apply: (game) => upgradeWeaponLevel(game, "poison") });
   }
 
   if (levels.beam === 0) {
     choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
   } else {
-    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", weapon: "beam", apply: (game) => game.weaponLevels.beam = Math.min(8, game.weaponLevels.beam + 1) });
+    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
   }
 
   const cleaverUpgrades = [
@@ -1502,9 +1550,9 @@ function updateUi() {
     if (level <= 0) continue;
     const chip = document.createElement("div");
     chip.className = "weapon-chip";
-    const marker = state.evolved[key] ? "*" : state.evolutionReady[key] ? "!" : "";
+    const marker = state.ascended[key] ? "^" : state.evolved[key] ? "*" : state.evolutionReady[key] ? "!" : "";
     const stage = state.evolutionStage[key] || 0;
-    const rankText = state.evolvedRanks[key] ? ` +${state.evolvedRanks[key]}` : "";
+    const rankText = state.ascended[key] ? " Final" : state.evolvedRanks[key] ? ` +${state.evolvedRanks[key]}` : "";
     const evoText = key === "cleaver" ? "" : state.evolved[key] ? ` ${state.evolutionNames[key] || "Evo"}${rankText}` : ` E${stage}/3`;
     chip.textContent = `${marker}${weaponDefs[key].name} ${level}${evoText}`;
     ui.weaponList.append(chip);
