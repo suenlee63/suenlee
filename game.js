@@ -352,6 +352,7 @@ const passiveUpgrades = [
   { name: "First Aid Kit", text: "Health regen +0.8 per second", apply: (game) => game.player.regen += 0.8 },
   { name: "Silver Charm", text: "All weapon damage +10%", apply: (game) => game.player.might *= 1.1 },
   { name: "Magnet Pack", text: "Pickup range +35%", apply: (game) => game.player.pickup *= 1.35 },
+  { name: "Learning Gem", text: "Experience gained +25%", apply: (game) => game.player.xpGain *= 1.25 },
 ];
 
 function resize() {
@@ -387,6 +388,7 @@ function newGame() {
       damage: character.damage,
       might: character.might,
       pickup: character.pickup,
+      xpGain: 1,
       dropBonus: character.dropBonus || 0,
       hazardBonus: character.hazardBonus || 1,
       invulnerable: 0,
@@ -982,7 +984,7 @@ function addParticles(x, y, color, count) {
 
 function gainXp(value) {
   const p = state.player;
-  p.xp += value;
+  p.xp += value * p.xpGain;
   while (p.xp >= p.nextXp) {
     p.xp -= p.nextXp;
     p.level += 1;
@@ -1367,6 +1369,10 @@ function updateUi() {
   regen.className = "weapon-chip";
   regen.textContent = `Regen ${p.regen.toFixed(1)}/s`;
   ui.weaponList.append(regen);
+  const xpGain = document.createElement("div");
+  xpGain.className = "weapon-chip";
+  xpGain.textContent = `XP ${Math.round(p.xpGain * 100)}%`;
+  ui.weaponList.append(xpGain);
 
   ui.goalSurvive.classList.toggle("goal-done", state.elapsed >= 600);
   ui.goalSurvive.textContent = state.elapsed >= 600 ? "Done: Survive 10:00" : "Survive 10:00";
