@@ -872,7 +872,9 @@ function fireSunBeam() {
   if (!target) return;
   const angle = Math.atan2(target.y - p.y, target.x - p.x);
   const length = state.evolved.beam ? 760 : 430;
-  const width = (state.evolved.beam ? 28 : 11) + level;
+  const widthBase = state.ascended.beam ? 34 : state.evolved.beam ? 24 : 10;
+  const widthGrowth = state.ascended.beam ? 4 : state.evolved.beam ? 3 : 2.2;
+  const width = widthBase + level * widthGrowth;
   const damage = (14 + level * 4) * p.might;
   state.hazards.push({
     x: p.x,
@@ -1253,7 +1255,7 @@ function buildUpgradePool() {
   if (levels.beam === 0) {
     choices.push({ name: "Unlock Sun Beam", text: weaponDefs.beam.desc, weapon: "beam", apply: (game) => game.weaponLevels.beam = 1 });
   } else {
-    choices.push({ name: "Focused Beam", text: "Wider piercing beam and more damage", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
+    choices.push({ name: "Focused Beam", text: "Beam width and piercing damage grow with each level", weapon: "beam", apply: (game) => upgradeWeaponLevel(game, "beam") });
   }
 
   const cleaverUpgrades = [
