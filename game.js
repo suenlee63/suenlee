@@ -1233,6 +1233,11 @@ function boostCharacterUpgradeChoices(choices) {
   }
 }
 
+function isSignatureUpgrade(upgrade) {
+  const character = characterDefs[state.player.character] || characterDefs.hunter;
+  return !!upgrade.weapon && !!character.affinity && character.affinity.includes(upgrade.weapon);
+}
+
 function maxWeaponLevel(game, key) {
   if (game.ascended[key]) return 14;
   if (game.evolved[key]) return 12;
@@ -1397,8 +1402,10 @@ function showLevelUp() {
 
   for (const upgrade of pool) {
     const button = document.createElement("button");
-    button.className = "choice";
-    button.innerHTML = `<strong>${upgrade.name}</strong><span>${upgrade.text}</span>`;
+    const signature = isSignatureUpgrade(upgrade);
+    button.className = signature ? "choice signature-choice" : "choice";
+    const badge = signature ? `<em>${characterDefs[state.player.character].name} Signature</em>` : "";
+    button.innerHTML = `<strong>${upgrade.name}${badge}</strong><span>${upgrade.text}</span>`;
     button.addEventListener("click", () => {
       upgrade.apply(state);
       updateEvolutionReadiness();
